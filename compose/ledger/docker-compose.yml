@@ -1,0 +1,36 @@
+networks:
+ docker:
+    name: docker
+
+services:
+  cryptography:
+    image: synchronic-web/cryptography-service:latest
+    networks:
+      - docker
+
+  journal:
+    image: synchronic-web/synchronic-web/journal-sdk:latest
+    volumes:
+      - ./source.scm:/srv/source.scm
+      - ./run.sh:/srv/run.sh
+    networks:
+      - docker
+    depends_on:
+      - cryptography
+    environment:
+      SEED: ${SEED}
+      PERIODICITY: ${PERIODICITY:-2}
+      CRYPTOGRAPHY: http://cryptography.docker
+      REST: '"$NOTARY"'
+    command: ./run.sh
+
+  interface:
+    image: nginx:stable-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - journal
+    networks:
+      - docker
+    ports:
+      - "${PORT:-8192}:80"
