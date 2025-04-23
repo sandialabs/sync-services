@@ -10,19 +10,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Login to Github registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: Build Docker image
-      run: |
-        version=$( cargo pkgid | cut -d '@' -f 2 )
-        docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:latest
-        docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:$version
-    - name: Push Docker image
-      run: |
-        docker push ghcr.io/${{ github.repository }}/cryptography:latest
+      - name: Install rust
+        uses: moonrepo/setup-rust@v1
+      - name: Login to Github registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build Docker image
+        run: |
+          docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:latest
+          docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 )
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository }}/cryptography:latest
+          docker push ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 )
