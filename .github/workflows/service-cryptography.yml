@@ -24,6 +24,7 @@ jobs:
         run: |
           cd ./services/cryptography
           cargo build
+          cargo test
           version=$( cargo pkgid | cut -d '@' -f 2 )
           docker build . --tag ghcr.io/${{ github.repository }}/cryptography:$version
           docker push ghcr.io/${{ github.repository }}/cryptography:$version
