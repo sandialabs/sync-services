@@ -25,6 +25,7 @@ jobs:
           cd ./services/cryptography
           version=$( cargo pkgid | cut -d '@' -f 2 )
           echo $( cargo pkgid )
+          echo $( ls )
           docker build . --tag ghcr.io/${{ github.repository }}/cryptography:$version
           docker push ghcr.io/${{ github.repository }}/cryptography:$version
       - name: Retag and push latest Docker image
