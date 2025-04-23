@@ -10,17 +10,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Login to Github registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: Build Docker image
-      run: |
-        docker build ./services/explorer --tag ghcr.io/${{ github.repository }}/explorer:latest
-    - name: Push Docker image
-      run: |
-        docker push ghcr.io/${{ github.repository }}/explorer:latest
+      - name: Login to Github registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build and push versioned Docker image
+        run: |
+          version=$( cat ./services/explorer/version.txt )
+          docker build ./services/explorer --tag ghcr.io/${{ github.repository }}/explorer:$version
+          docker push ghcr.io/${{ github.repository }}/explorer:$version
+      - name: Retag and push latest Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag ghcr.io/${{ github.repository }}/explorer:$( cat ./services/explorer/version.txt ) \
+                     ghcr.io/${{ github.repository }}/explorer:latest 
+          docker push ghcr.io/${{ github.repository }}/explorer:latest

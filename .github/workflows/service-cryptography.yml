@@ -28,3 +28,15 @@ jobs:
         run: |
           docker push ghcr.io/${{ github.repository }}/cryptography:latest
           docker push ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 )
+      - name: Build and push versioned Docker image
+        run: |
+          version=$( cargo pkgid | cut -d '@' -f 2 )
+          echo $( cargo pkgid )
+          docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:$version
+          docker push ghcr.io/${{ github.repository }}/cryptography:$version
+      - name: Retag and push latest Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 ) \
+                     ghcr.io/${{ github.repository }}/cryptography:latest 
+          docker push ghcr.io/${{ github.repository }}/cryptography:latest
