@@ -22,13 +22,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Build and push versioned Docker image
         run: |
-          echo $( ls )
-          echo $( pwd )
           cd ./services/cryptography
+          cargo build
           version=$( cargo pkgid | cut -d '@' -f 2 )
-          echo $( cargo pkgid )
-          echo $( ls )
-          echo $( pwd )
           docker build . --tag ghcr.io/${{ github.repository }}/cryptography:$version
           docker push ghcr.io/${{ github.repository }}/cryptography:$version
       - name: Retag and push latest Docker image
