@@ -20,14 +20,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Build Docker image
-        run: |
-          docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:latest
-          docker build ./services/cryptography --tag ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 )
-      - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository }}/cryptography:latest
-          docker push ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 )
       - name: Build and push versioned Docker image
         run: |
           version=$( cargo pkgid | cut -d '@' -f 2 )
