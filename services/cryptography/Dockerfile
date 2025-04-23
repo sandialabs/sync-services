@@ -1,6 +1,6 @@
 # --- Build ---
 
-FROM alpine:latest AS builder
+FROM alpine:3.21.3 AS builder
 
 ENV CC=clang
 ENV CXX=clang++
@@ -17,7 +17,7 @@ RUN cargo build --release
 
 # --- Deploy ---
 
-FROM alpine:latest
+FROM alpine:3.21.3
 
 WORKDIR /srv
 COPY --from=builder /usr/lib/libgcc_s.so.1 /usr/lib/
