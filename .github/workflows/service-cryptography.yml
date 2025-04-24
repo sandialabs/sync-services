@@ -7,8 +7,9 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  run:
     runs-on: ubuntu-latest
+    permissions: write-all
     steps:
       - name: Install rust
         uses: moonrepo/setup-rust@v1
