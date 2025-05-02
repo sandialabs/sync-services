@@ -41,6 +41,7 @@ def parse(expression, subpath):
     elif expression.startswith('(unknown '):
         return ('Unknown', '</br>')
     else:
+        print('Error: ', expression, flush=True)
         return ('Error', '</br>')
 
 
@@ -104,7 +105,7 @@ def handle_ledger():
         'Ledger Interface', ''.join([
             '<li><a href="config/">config</a>',
             '<li><a href="peer/">peer</a>',
-            '<li><a href="state/-1/">state</a>',
+            '<li><a href="state/-1/*state*">state</a>',
         ]))
 
 
