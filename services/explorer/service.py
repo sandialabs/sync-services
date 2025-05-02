@@ -41,6 +41,7 @@ def parse(expression, subpath):
     elif expression.startswith('(unknown '):
         return ('Unknown', '</br>')
     else:
+        print('Error: ', expression, flush=True)
         return ('Error', '</br>')
 
 

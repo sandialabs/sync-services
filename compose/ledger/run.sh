@@ -1,39 +1,26 @@
 #!/bin/sh
 
-if [ -z "$SEED" ]; then
-    echo Must set the secret SEED variable""
+if [ -z "$SECRET" ]; then
+    echo Must set the SECRET variable""
     exit 1
 fi
 
+record=$( cat record.scm )
+control=$( cat control.scm )
+ledger=$( cat ledger.scm )
+
 check_status() {
     while true; do
-	response=$( wget -qO - "$1" 2>/dev/null)
-	if [ -n "$response" ]; then
-	    return 0
-	else
+        echo "Polling for cryptography service"
+	    response=$( wget -qO - "$1" 2>/dev/null)
+	    if [ -n "$response" ]; then
+	        return 0
+	    else
             sleep 1
-	fi
+	    fi
     done
 }
 
-check_status "${CRYPTOGRAPHY}/signature/key/${SEED}"
+check_status "${CRYPTOGRAPHY}/signature/key/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
-routine() {
-    check_status "localhost/"
-
-    while true; do
-        start_time=$(date +%s)
-	response=$( wget -qO - localhost/interface --post-data "(step \"$SEED\")" )
-	echo $response >> steps.log
-        next_time=$((start_time + $(( 2 ** $PERIODICITY ))))
-        current_time=$(date +%s)
-        sleep_duration=$((next_time - current_time))
-        if [ $sleep_duration -gt 0 ]; then
-            sleep $sleep_duration
-        fi
-    done
-}
-
-routine &
-
-./journal-sdk -p 80 --database db --boot "($( cat source.scm ) \"$SEED\" $PERIODICITY \"$CRYPTOGRAPHY\" $REST)"
+./journal-sdk -b "($record \"$SECRET\" $control ($ledger \"$CRYPTOGRAPHY\" #t #f))" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY
