@@ -4,15 +4,13 @@ networks:
 
 services:
   cryptography:
-    image: synchronic-web/cryptography-service:latest
+    image: ghcr.io/sandialabs/sync-services/cryptography:1.0.0
     networks:
       - docker
 
   journal:
-    image: synchronic-web/synchronic-web/journal-sdk:latest
+    image: ghcr.io/sandialabs/sync-journal/journal-sdk:1.0.1
     volumes:
-      - ./source.scm:/srv/source.scm
-      - ./run.sh:/srv/run.sh
     networks:
       - docker
     depends_on:
@@ -21,8 +19,15 @@ services:
       SEED: ${SEED}
       PERIODICITY: ${PERIODICITY:-2}
       CRYPTOGRAPHY: http://cryptography.docker
-      REST: '"$NOTARY"'
     command: ./run.sh
+
+  explorer:
+    image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
+    networks:
+      - docker
+    depends_on:
+      - journal
+    command: python service.py --secret $SECRET --journal http://journal.docker
 
   interface:
     image: nginx:stable-alpine
