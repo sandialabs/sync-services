@@ -31,6 +31,7 @@ jobs:
       - name: Retag and push latest Docker image
         if: github.ref == 'refs/heads/main'
         run: |
+          cd ./services/cryptography
           docker tag ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 ) \
                      ghcr.io/${{ github.repository }}/cryptography:latest 
           docker push ghcr.io/${{ github.repository }}/cryptography:latest
