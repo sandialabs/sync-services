@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ -z "$SECRET" ]; then
-    echo Must set the $SECRET variable""
+    echo Must set the SECRET variable""
     exit 1
 fi
 
@@ -23,4 +23,4 @@ check_status() {
 
 check_status "${CRYPTOGRAPHY}/signature/key/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
-./journal-sdk -- -b "($record \"$SECRET\" $control ($ledger \"$cryptography\" #t #f))" -s "(*step* \"$SECRET\")" -p 80
+./journal-sdk -b "($record \"$SECRET\" $control ($ledger \"$CRYPTOGRAPHY\" #t #f))" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY

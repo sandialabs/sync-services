@@ -5,32 +5,35 @@ networks:
 services:
   cryptography:
     image: ghcr.io/sandialabs/sync-services/cryptography:1.0.0
+    container_name: cryptography
     networks:
       - docker
 
   journal:
-    image: ghcr.io/sandialabs/sync-journal/journal-sdk:1.0.1
-    volumes:
+    build:
+      context: .
+    container_name: journal
     networks:
       - docker
     depends_on:
       - cryptography
     environment:
-      SEED: ${SEED}
+      SECRET: ${SECRET}
       PERIODICITY: ${PERIODICITY:-2}
       CRYPTOGRAPHY: http://cryptography.docker
-    command: ./run.sh
 
   explorer:
     image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
+    container_name: explorer
     networks:
       - docker
     depends_on:
       - journal
-    command: python service.py --secret $SECRET --journal http://journal.docker
+    command: python service.py --secret $SECRET --journal http://journal.docker/interface --port 80
 
   interface:
     image: nginx:stable-alpine
+    container_name: interface
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
