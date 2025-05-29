@@ -12,6 +12,8 @@ services:
   journal:
     build:
       context: .
+      args:
+        REPOSITORY: ${REPOSITORY:-https://raw.githubusercontent.com/sandialabs/sync-records/0cf4c834fa37ca84b837e5a4a594dd16f09771a8/lisp}
     container_name: journal
     networks:
       - docker

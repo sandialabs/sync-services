@@ -1,8 +1,11 @@
 FROM ghcr.io/sandialabs/sync-journal/journal-sdk:1.0.1
 
-RUN wget https://raw.githubusercontent.com/sandialabs/sync-records/refs/heads/main/lisp/record.scm
-RUN wget https://raw.githubusercontent.com/sandialabs/sync-records/refs/heads/main/lisp/control.scm
-RUN wget https://raw.githubusercontent.com/sandialabs/sync-records/refs/heads/main/lisp/ledger.scm
+ARG REPOSITORY
+ENV REPOSITORY=$REPOSITORY
+
+RUN wget $REPOSITORY/record.scm
+RUN wget $REPOSITORY/control.scm
+RUN wget $REPOSITORY/ledger.scm
 
 COPY run.sh .
 
