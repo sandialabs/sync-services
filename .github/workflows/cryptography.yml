@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: "cryptography"
+  cancel-in-progress: true
+
 jobs:
   run:
     runs-on: ubuntu-latest
     permissions: write-all
+    # if: github.ref == 'refs/heads/main'
     steps:
       - name: Install rust
         uses: moonrepo/setup-rust@v1
@@ -33,6 +38,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           cd ./services/cryptography
-          docker tag ghcr.io/${{ github.repository }}/cryptography:$( cargo pkgid | cut -d '@' -f 2 ) \
+          version=$( cargo pkgid | cut -d '@' -f 2 )
+          docker tag ghcr.io/${{ github.repository }}/cryptography:$version \
                      ghcr.io/${{ github.repository }}/cryptography:latest 
           docker push ghcr.io/${{ github.repository }}/cryptography:latest

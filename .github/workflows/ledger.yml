@@ -1,0 +1,38 @@
+name: Ledger Journal
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: "ledger"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    # if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Login to Github registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build and push versioned Docker image
+        run: |
+          version=$( cat ./compose/ledger/version.txt )
+          docker build ./compose/ledger --tag ghcr.io/${{ github.repository }}/ledger:$version
+          docker push ghcr.io/${{ github.repository }}/ledger:$version
+      - name: Retag and push latest Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          version=$( cat ./compose/ledger/version.txt )
+          docker tag ghcr.io/${{ github.repository }}/ledger:$version \
+                     ghcr.io/${{ github.repository }}/ledger:latest 
+          docker push ghcr.io/${{ github.repository }}/ledger:latest
