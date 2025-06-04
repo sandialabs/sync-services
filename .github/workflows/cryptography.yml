@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: "cryptography"
+  cancel-in-progress: true
+
 jobs:
   run:
     runs-on: ubuntu-latest
     permissions: write-all
+    # if: github.ref == 'refs/heads/main'
     steps:
       - name: Install rust
         uses: moonrepo/setup-rust@v1
