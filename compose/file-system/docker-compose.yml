@@ -1,0 +1,56 @@
+networks:
+ docker:
+    name: docker
+
+services:
+  fuse:
+    container_name: fuse
+    build:
+      context: ../../services/fuse
+    devices:
+      - /dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    ports:
+      - 445:445
+    networks:
+      - docker
+    environment:
+      SECRET: ${SECRET}
+      SAMBA_USERNAME: ${SAMBA_USERNAME:-samba}
+      SAMBA_SECRET: ${SAMBA_SECRET:-secret}
+      SAMBA_SHARE: ${SAMBA_SHARE:-data}
+    volumes:
+      - ./data-back:/data-back
+
+  cryptography:
+    image: ghcr.io/sandialabs/sync-services/cryptography:1.0.0
+    container_name: cryptography
+    networks:
+      - docker
+
+  journal:
+    image: ghcr.io/sandialabs/sync-services/ledger:1.0.0
+    container_name: journal
+    networks:
+      - docker
+    depends_on:
+      - cryptography
+    environment:
+      SECRET: ${SECRET}
+      PERIODICITY: ${PERIODICITY:-2}
+      CRYPTOGRAPHY: http://cryptography.docker
+
+  interface:
+    image: nginx:stable-alpine
+    container_name: interface
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - journal
+    networks:
+      - docker
+    ports:
+      - "${PORT:-8192}:80"

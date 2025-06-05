@@ -1,0 +1,21 @@
+* conclusion
+- the file-system thing is just a separate use case, not general-purpose explorer
+* idea:
+- need function to check expression (maybe at control level?)
+* paths
+** reading
+- if symbol, then as-is
+- if bytes, then interpret has hex
+** writing
+- only allow writing strings
+  - if try to write hex, then escape somehow
+- always create a new dummy file
+* values
+** reading
+- if expression, then expression
+- if string, then strip quotes
+- if bytes, then parse and print
+** writing
+- if parses as expression, then do expression
+- if ascii, then string
+- if not ascii, then bytes

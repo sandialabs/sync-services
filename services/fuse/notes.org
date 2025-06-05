@@ -1,0 +1,25 @@
+* strategy
+- whenever someone writes to it:
+  - make sure it's under "stage"
+  - hash the file
+  - write it to the contents dir under the file hash (if not exists)
+  - set a symlink on the main dir
+  - send to the synchronic web
+- periodically
+  - query the latest ledger-index
+  - if new indices exist, then create it in the shortcuts folder
+  - whenever someone accesses those old indices, then point to a read-only version of the content files
+* structure 
+- data (back)
+  - stage
+  - contents
+- data (front)
+  - stage
+  - states
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - ... for the last X files
