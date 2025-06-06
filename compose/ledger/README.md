@@ -17,7 +17,7 @@ Please set the following environmental variables to configure the notary journal
 
 ## Start
 
-`$ SECRET=password PORT=80 docker compose up --build`
+`$ SECRET=password PORT=80 docker compose up`
 
 ## End
 
