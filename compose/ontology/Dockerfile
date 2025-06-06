@@ -5,6 +5,7 @@ ARG REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/6e8593d
 RUN wget $REPOSITORY/record.scm
 RUN wget $REPOSITORY/control.scm
 RUN wget $REPOSITORY/ledger.scm
+RUN wget $REPOSITORY/ontology.scm
 
 COPY run.sh .
 
