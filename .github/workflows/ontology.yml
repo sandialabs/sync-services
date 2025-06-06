@@ -1,0 +1,38 @@
+name: Ontology Journal
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: "ontology"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Login to Github registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build and push versioned Docker image
+        run: |
+          version=$( cat ./compose/ontology/version.txt )
+          docker build ./compose/ontology --tag ghcr.io/${{ github.repository }}/ontology:$version
+          docker push ghcr.io/${{ github.repository }}/ontology:$version
+      - name: Retag and push latest Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          version=$( cat ./compose/ontology/version.txt )
+          docker tag ghcr.io/${{ github.repository }}/ontology:$version \
+                     ghcr.io/${{ github.repository }}/ontology:latest 
+          docker push ghcr.io/${{ github.repository }}/ontology:latest
