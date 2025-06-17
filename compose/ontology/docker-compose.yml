@@ -10,7 +10,7 @@ services:
       - docker
 
   journal:
-    image: ghcr.io/sandialabs/sync-services/ledger:1.0.0
+    image: ghcr.io/sandialabs/sync-services/ontology:1.0.0
     container_name: journal
     networks:
       - docker
