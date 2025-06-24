@@ -3,23 +3,14 @@ networks:
     name: docker
 
 services:
-  cryptography:
-    image: ghcr.io/sandialabs/sync-services/cryptography:1.0.0
-    container_name: cryptography
-    networks:
-      - docker
-
   journal:
     image: ghcr.io/sandialabs/sync-services/ontology:1.0.0
     container_name: journal
     networks:
       - docker
-    depends_on:
-      - cryptography
     environment:
       SECRET: ${SECRET}
       PERIODICITY: ${PERIODICITY:-2}
-      CRYPTOGRAPHY: http://cryptography.docker
 
   explorer:
     image: ghcr.io/sandialabs/sync-services/explorer:1.0.0

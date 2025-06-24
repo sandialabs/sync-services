@@ -10,18 +10,4 @@ control=$( cat control.scm )
 ledger=$( cat ledger.scm )
 ontology=$( cat ontology.scm )
 
-check_status() {
-    while true; do
-        echo "Polling for cryptography service"
-	    response=$( wget -qO - "$1" 2>/dev/null)
-	    if [ -n "$response" ]; then
-	        return 0
-	    else
-            sleep 1
-	    fi
-    done
-}
-
-check_status "${CRYPTOGRAPHY}/signature/key/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-
-./journal-sdk -b "($record \"$SECRET\" $control ($ledger \"$CRYPTOGRAPHY\" #t #f) $ontology)" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY
+./journal-sdk -b "($record \"$SECRET\" $control ($ledger #t #f) $ontology)" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY
