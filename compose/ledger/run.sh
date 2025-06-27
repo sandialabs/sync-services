@@ -5,8 +5,12 @@ if [ -z "$SECRET" ]; then
     exit 1
 fi
 
+if [ -z "$WINDOW" ]; then
+    WINDOW="#t"
+fi
+
 record=$( cat record.scm )
 control=$( cat control.scm )
 ledger=$( cat ledger.scm )
 
-./journal-sdk -b "($record \"$SECRET\" $control ($ledger #t #f))" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY
+./journal-sdk -b "($record \"$SECRET\" $control ($ledger $WINDOW #f))" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY -l $DELAY
