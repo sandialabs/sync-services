@@ -14,4 +14,4 @@ control=$( cat control.scm )
 ledger=$( cat ledger.scm )
 ontology=$( cat ontology.scm )
 
-./journal-sdk -b "($record \"$SECRET\" $control ($ledger $WINDOW #f) $ontology)" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY -l $DELAY
+RUST_LOG=info ./journal-sdk -b "($record \"$SECRET\" $control ($ledger $WINDOW #f) $ontology)" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY -l $DELAY
