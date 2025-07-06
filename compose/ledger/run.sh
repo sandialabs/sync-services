@@ -6,7 +6,7 @@ if [ -z "$SECRET" ]; then
 fi
 
 if [ -z "$WINDOW" ]; then
-    WINDOW="#t"
+    WINDOW="#f"
 fi
 
 record=$( cat record.scm )
