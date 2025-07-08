@@ -18,7 +18,23 @@
                    #f 
                    (vote)))
 
-; THESE ARE THE CURRENTLY TESTING ONES 
+
+; CURRENT TEST 
+
+(*local* "password" 
+    (contract-deploy (*state* contracts bill1 code) 
+                     (begin (define vote (lambda (user pass) (if (eq? (,contract-auth user pass) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error")))) ) 
+                     (*state* contracts bill1 vars) 
+                     (define vars (hash-table 'votes 0))))
+
+
+(*local* "password" 
+    (contract-call (*state* contracts bill1 code) 
+                   (*state* contracts bill1 vars) 
+                   #f 
+                   (vote "divya" "password")))
+
+; OLD TEST 1
 
 (*local* "password" 
     (contract-deploy (*state* contracts test code) 
@@ -31,7 +47,7 @@
 
 
 (*local* "password" 
-    (contract-call-working (*state* contracts test code) 
+    (contract-call (*state* contracts test code) 
                            (*state* contracts test vars) 
                            #f 
                            (foo)))

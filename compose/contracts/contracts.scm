@@ -31,6 +31,22 @@
               (begin ((record 'set!) (append '(ledger stage) codepath) src)
                       (,vars-deploy varspath vars)))))
 
+  (define contract-auth
+    (lambda (username password)
+      (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+             (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
+                  (if (eq? table 'nothing)
+                      ; (display table)
+                      (error "account does not exist")
+                      (let ((table ((ledger 'get) `(*state* data accounts) index))) 
+                            (begin (eval (cadr table))
+                              ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
+                              (if (eq? (accounts username) password)
+                                #t
+                                (error "authentication error"))
+                
+                                ))))))) 
+
 
   ; this one works for one method
   ; make this define all the variables (string manipulation), so have str1 = a bunch of defines
@@ -49,10 +65,32 @@
                 (call-res (eval call))
                 (dep (,vars-deploy varpath `(define vars ,vars)))) 
           ;  (display (eval (car code))) 
-          ;  (,vars-deploy varpath `(define vars ,vars))
-           (format #f "New State: ~a " varsbf)
+          ;  (,vars-deploy varpath `(define vars ,vars)) 
+           (format #f "defs: ~a call: ~a" defs vars)
            
          ))))
+
+  
+
+  (define create-account 
+    `(lambda (record username password index)
+        (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+             (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
+                  (if (eq? table 'nothing)
+                      ; (display table)
+                      ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts (hash-table ,username ,password)))
+                      (let ((table ((ledger 'get) `(*state* data accounts) index))) 
+                            (begin (eval (cadr table))
+                              ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
+                              (if (eq? (accounts username) #f)
+                                (begin (set! (accounts username) password) ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts ,accounts)))
+                                (error "username already exists"))
+                              (display accounts)
+                              (eval '(begin (define vote (lambda (user pass) (if (eq? (,contract-auth user pass) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error!")))) ))
+                              (eval '(vote "weea" "hi"))
+                                )))))))
+
+  
 
   (define contract-call-debug
     `(lambda (record codepath varpath index call)
@@ -77,6 +115,7 @@
   ((record 'set!) '(control local contract-deploy) contract-deploy)
   ((record 'set!) '(control local mysum-call) mysum-call)
   ((record 'set!) '(control local contract-call) contract-call)
-  ((record 'set!) '(control local contract-call-debug) contract-call-debug))
+  ((record 'set!) '(control local contract-call-debug) contract-call-debug)
+  ((record 'set!) '(control local create-account) create-account))
 
 
