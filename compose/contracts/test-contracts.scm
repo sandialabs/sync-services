@@ -23,7 +23,30 @@
 
 (*local* "password" 
     (contract-deploy (*state* contracts bill1 code) 
-                     (begin (define vote (lambda (user pass) (if (eq? (,contract-auth user pass) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error")))) ) 
+                     (begin (define contract-auth
+                            (lambda (username password index)
+                            (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+                                    (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
+                                        (if (eq? table 'nothing)
+                                            ; (display table)
+                                            (display "account does not exist")
+                                            (let ((table ((ledger 'get) `(*state* data accounts) index))) 
+                                                    (begin (eval (cadr table))
+                                                    ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
+                                                    (if (string=? (accounts username) password)
+                                                        #t
+                                                        (error #f "~a does not equal ~a" (accounts username) password))
+                                        
+                                                        )))))))
+                            (define vote (lambda (user pass) (if (eq? (contract-auth user pass #f) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error")))) 
+                            ) 
+                     (*state* contracts bill1 vars) 
+                     (define vars (hash-table 'votes 0))))
+
+(*local* "password" 
+    (contract-deploy (*state* contracts bill1 code) 
+                     (begin (define vote (lambda (user pass) (if (eq? (contract-auth user pass) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error")))) 
+                            ) 
                      (*state* contracts bill1 vars) 
                      (define vars (hash-table 'votes 0))))
 
@@ -52,4 +75,11 @@
                            #f 
                            (foo)))
 
-                           
+(define (outer-function x)
+  (let ((inner-function
+         (lambda (y)
+           (+ x y)))) ; Define inner-function using lambda
+    (inner-function 10))) ; Call inner-function with an argument
+
+;; Example usage
+(display (outer-function 5)) ; This will display 15 (5 + 10)

@@ -32,18 +32,18 @@
                       (,vars-deploy varspath vars)))))
 
   (define contract-auth
-    (lambda (username password)
+    `(lambda (record username password index)
       (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
              (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
                   (if (eq? table 'nothing)
                       ; (display table)
-                      (error "account does not exist")
+                      (display "account does not exist")
                       (let ((table ((ledger 'get) `(*state* data accounts) index))) 
                             (begin (eval (cadr table))
                               ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
                               (if (eq? (accounts username) password)
                                 #t
-                                (error "authentication error"))
+                                (format #f "~a does not equal ~a" (accounts username) password))
                 
                                 ))))))) 
 
@@ -56,19 +56,36 @@
   ; get rid of this index parameter 
   (define contract-call
     `(lambda (record codepath varpath index call)
+       (let ((contract-auth
+          (lambda (username password)
+          (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+                  (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
+                      (if (eq? table 'nothing)
+                          ; (display table)
+                          (display "account does not exist")
+                          (let ((table ((ledger 'get) `(*state* data accounts) index))) 
+                                  (begin (eval (cadr table))
+                                  ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
+                                  (if (eq? (accounts username) #f) (error "account does not exist")
+                                  (if (string=? (accounts username) password)
+                                      #t
+                                      (error #f "~a does not equal ~a" (accounts username) password)))
+                                      ))))))))
        (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
          (let* ((defs (cadr ((ledger 'get) codepath index)))
                 (varsdef (cadr ((ledger 'get) varpath index)))
                 (code (cons defs (list call)))
                 (varsbf (eval varsdef))
-                (defs (eval defs))
-                (call-res (eval call))
+                (defs (eval defs)) ; eval defs 
+                (call-res (eval call)) ; eval call
+                ; (defstest (eval '(begin (define vote (lambda (user pass) (if (eq? (,contract-auth user pass #f) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error"))))) ))
+                ; (call-res (eval '(vote "divya" "password"))) ; test
                 (dep (,vars-deploy varpath `(define vars ,vars)))) 
           ;  (display (eval (car code))) 
           ;  (,vars-deploy varpath `(define vars ,vars)) 
-           (format #f "defs: ~a call: ~a" defs vars)
+           (format #f "defs: ~a call: ~a" defs call-res)
            
-         ))))
+         )))))
 
   
 
@@ -86,8 +103,6 @@
                                 (begin (set! (accounts username) password) ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts ,accounts)))
                                 (error "username already exists"))
                               (display accounts)
-                              (eval '(begin (define vote (lambda (user pass) (if (eq? (,contract-auth user pass) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error!")))) ))
-                              (eval '(vote "weea" "hi"))
                                 )))))))
 
   
@@ -116,6 +131,8 @@
   ((record 'set!) '(control local mysum-call) mysum-call)
   ((record 'set!) '(control local contract-call) contract-call)
   ((record 'set!) '(control local contract-call-debug) contract-call-debug)
-  ((record 'set!) '(control local create-account) create-account))
+  ((record 'set!) '(control local create-account) create-account)
+  ; ((record 'set!) '(control local contract-auth) contract-auth)
+  )
 
 
