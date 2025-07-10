@@ -15,7 +15,6 @@ Please set the following environmental variables to configure the notary journal
 - `PORT`: port number to forward on the host machine (default:8192)
 - `PERIODICITY`: a nonnegative integer that determines the period of each synchronization step where period = 2 ^ PERIODICITY
 - `WINDOW`: number of previous unpinned historical states to persist
-- `DELAY`: maximum time (seconds) to randomly delay between requests (for congestion control)
 
 ## Start
 

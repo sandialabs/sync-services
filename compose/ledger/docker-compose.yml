@@ -12,7 +12,6 @@ services:
       SECRET: ${SECRET}
       PERIODICITY: ${PERIODICITY:-2}
       WINDOW: ${WINDOW:-1024}
-      DELAY: ${DELAY:-1}
 
   explorer:
     image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
