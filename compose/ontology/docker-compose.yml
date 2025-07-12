@@ -12,6 +12,8 @@ services:
       SECRET: ${SECRET}
       PERIODICITY: ${PERIODICITY:-2}
       WINDOW: ${WINDOW:-1024}
+    volumes:
+      - database:/srv/database
 
   explorer:
     image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
@@ -33,3 +35,6 @@ services:
       - docker
     ports:
       - "${PORT:-8192}:80"
+
+volumes:
+  database:
