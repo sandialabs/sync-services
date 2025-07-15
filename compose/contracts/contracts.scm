@@ -69,7 +69,7 @@
                                   (if (eq? (accounts username) #f) (error "account does not exist")
                                   (if (string=? (accounts username) password)
                                       #t
-                                      (error #f "~a does not equal ~a" (accounts username) password)))
+                                      (error "wrong password")))
                                       ))))))))
        (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
          (let* ((defs (cadr ((ledger 'get) codepath index)))

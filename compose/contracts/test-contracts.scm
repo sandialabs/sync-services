@@ -45,6 +45,37 @@
 
 (*local* "password" 
     (contract-deploy (*state* contracts bill1 code) 
+                     (begin (define vote (lambda (user pass) 
+                                            (if (and (eq? (contract-auth user pass) #t) (eq? (vars 'voters user) #f)) 
+                                                (begin (set! (vars 'voters user) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) )
+                                                (display "authentication error")))) 
+                            ) 
+                     (*state* contracts bill1 vars) 
+                     (define vars (hash-table 'votes 0 'voters (hash-table)))))
+
+
+(*local* "password" 
+    (contract-deploy (*state* contracts bill1 code) 
+                     (begin (define vote (lambda (user pass) 
+                                            (if (eq? (contract-auth user pass) #t) 
+                                                (if (eq? (vars 'voters user) #f) (begin (set! (vars 'voters user) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) ) (error "you already voted"))
+                                                (error "authentication error"))  )) 
+                            ) 
+                     (*state* contracts bill1 vars) 
+                     (define vars (hash-table 'votes 0 'voters (hash-table)))))
+
+
+(*local* "password" 
+    (contract-call (*state* contracts bill1 code) 
+                   (*state* contracts bill1 vars) 
+                   #f 
+                   (vote "divya" "password")))
+
+
+; OLD TEST 2 - HAS AUTH BUT NOT STORAGE 
+
+(*local* "password" 
+    (contract-deploy (*state* contracts bill1 code) 
                      (begin (define vote (lambda (user pass) (if (eq? (contract-auth user pass) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error")))) 
                             ) 
                      (*state* contracts bill1 vars) 
