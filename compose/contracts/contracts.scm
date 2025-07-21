@@ -31,21 +31,21 @@
               (begin ((record 'set!) (append '(ledger stage) codepath) src)
                       (,vars-deploy varspath vars)))))
 
-  (define contract-auth
-    `(lambda (record username password index)
-      (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
-             (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
-                  (if (eq? table 'nothing)
-                      ; (display table)
-                      (display "account does not exist")
-                      (let ((table ((ledger 'get) `(*state* data accounts) index))) 
-                            (begin (eval (cadr table))
-                              ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
-                              (if (eq? (accounts username) password)
-                                #t
-                                (format #f "~a does not equal ~a" (accounts username) password))
+  ; (define contract-auth
+  ;   `(lambda (record username password index)
+  ;     (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+  ;            (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
+  ;                 (if (eq? table 'nothing)
+  ;                     ; (display table)
+  ;                     (display "account does not exist")
+  ;                     (let ((table ((ledger 'get) `(*state* data accounts) index))) 
+  ;                           (begin (eval (cadr table))
+  ;                             ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
+  ;                             (if (eq? (accounts username) password)
+  ;                               #t
+  ;                               (format #f "~a does not equal ~a" (accounts username) password))
                 
-                                ))))))) 
+  ;                               ))))))) 
 
 
   ; this one works for one method
@@ -55,14 +55,14 @@
   ; so combine str1 and str2 into a begin, and then make the call
   ; get rid of this index parameter 
   (define contract-call
-    `(lambda (record codepath varpath index call)
+    `(lambda (record username password codepath varpath index call)
        (let ((contract-auth
-          (lambda (username password)
+          (lambda ()
           (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
                   (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
                       (if (eq? table 'nothing)
                           ; (display table)
-                          (display "account does not exist")
+                          (error "account does not exist")
                           (let ((table ((ledger 'get) `(*state* data accounts) index))) 
                                   (begin (eval (cadr table))
                                   ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
@@ -71,8 +71,25 @@
                                       #t
                                       (error "wrong password")))
                                       ))))))))
-       (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+       (let* ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record))
+              (whee (contract-auth))
+              (tokens-table ((ledger 'get) `(*state* data tokens) index))
+              (tokens-table (eval (cadr tokens-table)))
+              (times-table ((ledger 'get) `(*state* data times) index))
+              (times-table (eval (cadr times-table))))
+          (begin (set! (tokens username) (if (> (- (*s7* 'cpu-time) (times username)) 5) ; if enough time has elapsed
+                                            (begin (set! (times username) (*s7* 'cpu-time)) ; update the time of token giving
+                                                   ((record 'set!) (append '(ledger stage) `(*state* data times)) `(define times ,times)) ; redeploy times and tokens tables 
+                                                   ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens)) 
+                                                   10) ; refresh time, tokens=10
+                                            (tokens username))) ; otherwise keep tokens the same 
          (let* ((defs (cadr ((ledger 'get) codepath index)))
+                ; (tokens-table ((ledger 'get) `(*state* data tokens) index))
+                ; (tokens-table (eval (cadr tokens-table)))
+                ; (times-table ((ledger 'get) `(*state* data times) index))
+                ; (times-table (eval (cadr times-table)))
+
+                (start (*s7* 'cpu-time))
                 (varsdef (cadr ((ledger 'get) varpath index)))
                 (code (cons defs (list call)))
                 (varsbf (eval varsdef))
@@ -80,12 +97,20 @@
                 (call-res (eval call)) ; eval call
                 ; (defstest (eval '(begin (define vote (lambda (user pass) (if (eq? (,contract-auth user pass #f) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error"))))) ))
                 ; (call-res (eval '(vote "divya" "password"))) ; test
-                (dep (,vars-deploy varpath `(define vars ,vars)))) 
+                (time (- (*s7* 'cpu-time) start))
+                ; (dep (,vars-deploy varpath `(define vars ,vars)))
+                ) 
           ;  (display (eval (car code))) 
           ;  (,vars-deploy varpath `(define vars ,vars)) 
-           (format #f "defs: ~a call: ~a" defs call-res)
+           (if (< (tokens username) (* 10000 time)) (display "you dont have enough tokens") 
+           (begin (,vars-deploy varpath `(define vars ,vars)) 
+                  (set! (tokens username) (- (tokens username) (* 10000 time)))
+                  ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
+                  (format #f "defs: ~a call: ~a time: ~a tokens ~a" defs call-res time (tokens username))
+                  ))
            
-         )))))
+           
+         ))))) )
 
   
 
@@ -95,14 +120,25 @@
              (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
                   (if (eq? table 'nothing)
                       ; (display table)
-                      ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts (hash-table ,username ,password)))
-                      (let ((table ((ledger 'get) `(*state* data accounts) index))) 
-                            (begin (eval (cadr table))
+                      (begin ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts (hash-table ,username ,password)))
+                             ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens (hash-table ,username 10)))
+                             ((record 'set!) (append '(ledger stage) `(*state* data times)) `(define times (hash-table ,username ,(*s7* 'cpu-time)))))
+                      (let ((accounts-table ((ledger 'get) `(*state* data accounts) index))
+                            (tokens-table ((ledger 'get) `(*state* data tokens) index))
+                            (times-table ((ledger 'get) `(*state* data times) index))) 
+                            (begin (eval (cadr accounts-table))
+                              (eval (cadr tokens-table))
+                              (eval (cadr times-table))
                               ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
                               (if (eq? (accounts username) #f)
-                                (begin (set! (accounts username) password) ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts ,accounts)))
+                                (begin (set! (accounts username) password) 
+                                       (set! (tokens username) 10)
+                                       (set! (times username) (*s7* 'cpu-time))
+                                       ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts ,accounts))
+                                       ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
+                                       ((record 'set!) (append '(ledger stage) `(*state* data times)) `(define times ,times)))
                                 (error "username already exists"))
-                              (display accounts)
+                              (format #f "ACCOUNTS ~a TOKENS ~a TIMES ~a" accounts tokens times)
                                 )))))))
 
   

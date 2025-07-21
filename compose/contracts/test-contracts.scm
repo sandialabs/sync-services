@@ -53,23 +53,27 @@
                      (*state* contracts bill1 vars) 
                      (define vars (hash-table 'votes 0 'voters (hash-table)))))
 
+; OLD TEST 3 YOU CAN ONLY VOTE ONCE 
+
+(*local* "password" (create-account "divya" "passwd" #f))
 
 (*local* "password" 
     (contract-deploy (*state* contracts bill1 code) 
-                     (begin (define vote (lambda (user pass) 
-                                            (if (eq? (contract-auth user pass) #t) 
+                     (begin (define vote (lambda (user) 
+                                           
                                                 (if (eq? (vars 'voters user) #f) (begin (set! (vars 'voters user) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) ) (error "you already voted"))
-                                                (error "authentication error"))  )) 
+                                                  )) 
                             ) 
                      (*state* contracts bill1 vars) 
                      (define vars (hash-table 'votes 0 'voters (hash-table)))))
 
 
 (*local* "password" 
-    (contract-call (*state* contracts bill1 code) 
+    (contract-call "divya" "passwd" 
+                   (*state* contracts bill1 code) 
                    (*state* contracts bill1 vars) 
                    #f 
-                   (vote "divya" "password")))
+                   (vote "divya")))
 
 
 ; OLD TEST 2 - HAS AUTH BUT NOT STORAGE 
@@ -101,12 +105,15 @@
 
 
 (*local* "password" 
-    (contract-call (*state* contracts test code) 
+    (contract-call "divya" "passwd"
+                        (*state* contracts test code) 
                            (*state* contracts test vars) 
                            #f 
                            (foo)))
 
-(define (outer-function x)
+; OTHER STUFF                         
+
+(define (outer-function x) 
   (let ((inner-function
          (lambda (y)
            (+ x y)))) ; Define inner-function using lambda
