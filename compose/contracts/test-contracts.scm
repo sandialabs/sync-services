@@ -19,39 +19,50 @@
                    (vote)))
 
 
-; CURRENT TEST 
+; CURRENT TEST - VOTE FOR BILL1 AND BILL2 AT THE SAME TIME 
 
+(*local* "password" (create-account "divya" "passwd" #f))
+
+; just define bill2 
 (*local* "password" 
-    (contract-deploy (*state* contracts bill1 code) 
-                     (begin (define contract-auth
-                            (lambda (username password index)
-                            (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
-                                    (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
-                                        (if (eq? table 'nothing)
-                                            ; (display table)
-                                            (display "account does not exist")
-                                            (let ((table ((ledger 'get) `(*state* data accounts) index))) 
-                                                    (begin (eval (cadr table))
-                                                    ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
-                                                    (if (string=? (accounts username) password)
-                                                        #t
-                                                        (error #f "~a does not equal ~a" (accounts username) password))
-                                        
-                                                        )))))))
-                            (define vote (lambda (user pass) (if (eq? (contract-auth user pass #f) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) (display "authentication error")))) 
+    (contract-deploy (*state* contracts bill2 code) 
+                     (begin (define vote2 (lambda () 
+                                           
+                                                (if (eq? (vars 'voters username) #f) (begin (set! (vars 'voters username) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) ) (error "you already voted"))
+                                                  )) 
                             ) 
-                     (*state* contracts bill1 vars) 
-                     (define vars (hash-table 'votes 0))))
+                     (*state* contracts bill2 vars) 
+                     (define vars (hash-table 'votes 0 'voters (hash-table)))))
+
+; define a function where u can vote for this and similar bills 
 
 (*local* "password" 
     (contract-deploy (*state* contracts bill1 code) 
-                     (begin (define vote (lambda (user pass) 
-                                            (if (and (eq? (contract-auth user pass) #t) (eq? (vars 'voters user) #f)) 
-                                                (begin (set! (vars 'voters user) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) )
-                                                (display "authentication error")))) 
+                     (begin (define vote (lambda () 
+                                           
+                                                (if (eq? (vars 'voters username) #f) (begin (set! (vars 'voters username) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) ) (error "you already voted"))
+                                                  ))
+                            (define vote-similar (lambda ()
+                                                        (cross-call username password '(*state* contracts bill2 code) '(*state* contracts bill2 vars) #f '(vote2)))) 
                             ) 
                      (*state* contracts bill1 vars) 
                      (define vars (hash-table 'votes 0 'voters (hash-table)))))
+
+
+
+(*local* "password" 
+    (contract-call "divya" "passwd"    
+                   (*state* contracts bill1 code) 
+                   (*state* contracts bill1 vars) 
+                   #f 
+                   (vote-similar)))
+
+(*local* "password"  
+    (contract-call "divya" "passwd" 
+                   (*state* contracts bill2 code) 
+                   (*state* contracts bill2 vars) 
+                   #f 
+                   (vote2)))
 
 ; OLD TEST 3 YOU CAN ONLY VOTE ONCE 
 
@@ -59,9 +70,9 @@
 
 (*local* "password" 
     (contract-deploy (*state* contracts bill1 code) 
-                     (begin (define vote (lambda (user) 
+                     (begin (define vote (lambda () 
                                            
-                                                (if (eq? (vars 'voters user) #f) (begin (set! (vars 'voters user) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) ) (error "you already voted"))
+                                                (if (eq? (vars 'voters username) #f) (begin (set! (vars 'voters username) #t) (set! (vars 'votes) (+ 1 (vars 'votes))) ) (error "you already voted"))
                                                   )) 
                             ) 
                      (*state* contracts bill1 vars) 
@@ -73,7 +84,7 @@
                    (*state* contracts bill1 code) 
                    (*state* contracts bill1 vars) 
                    #f 
-                   (vote "divya")))
+                   (vote)))
 
 
 ; OLD TEST 2 - HAS AUTH BUT NOT STORAGE 

@@ -24,4 +24,4 @@ check_status() {
 
 check_status "${CRYPTOGRAPHY}/signature/key/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
-./journal-sdk -b "($record \"$SECRET\" $control ($ledger \"$CRYPTOGRAPHY\" #t #f) $contracts)" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY
+./journal-sdk -b "($record \"$SECRET\" $control ($ledger \"$CRYPTOGRAPHY\" #t #f) ($contracts 8 5))" -s "(*step* \"$SECRET\")" -p 80 -c $PERIODICITY
