@@ -4,6 +4,22 @@
 
   ; (define out (open-output-file "testing.txt"))
 
+    (define contract-auth 
+      `(lambda (username password)
+            (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
+                    (let ((table (car ((ledger 'get) `(*state* data accounts) #f))))
+                        (if (eq? table 'nothing)
+                            ; (display table)
+                            (error 'auth-error "Account does not exist")
+                            (let ((table ((ledger 'get) `(*state* data accounts) #f))) 
+                                    (begin (eval (cadr table))
+                                    ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
+                                    (if (eq? (accounts username) #f) (error 'auth-error "account does not exist")
+                                    (if (string=? (accounts username) password)
+                                        #t
+                                        (error 'auth-error "Wrong password")))
+                                        )))))))
+
 
     (define vars-deploy
         `(lambda (varspath vars) 
@@ -20,7 +36,7 @@
 
     ; make this take a code path and a vars path, and the user inputs a hashmap for the var path
     (define contract-deploy
-        `(lambda (record codepath src varspath vars) 
+        `(lambda (record username password codepath src varspath vars) 
             "Write the value to the path. Recursively generate parent
             directories if necessary.
             ; fix the below stuff 
@@ -28,31 +44,40 @@
             > codepath (list sym|vec): path to the contract
             > src (exp|sync-pair): contract to be stored at the path
             < return (bool): boolean indicating success of the operation"
+            (let* ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)) ; get stuff off the journal 
+                (whee (,contract-auth username password))
+                (tokens-table ((ledger 'get) `(*state* data tokens) #f))
+                (tokens-table (eval (cadr tokens-table))) 
+                (times-table ((ledger 'get) `(*state* data times) #f))
+                (times-table (eval (cadr times-table))))
+            (begin (set! (tokens username) (if (> (- (*s7* 'cpu-time) (times username)) ,,refresh-pd) ; if enough time has elapsed
+                                              (begin (set! (times username) (*s7* 'cpu-time)) ; update the time of token giving
+                                                    ((record 'set!) (append '(ledger stage) `(*state* data times)) `(define times ,times)) ; redeploy times and tokens tables 
+                                                    ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens)) 
+                                                    ,,start-amt) ; refresh time, tokens=10
+                                              (tokens username)))
+            (define starttime (*s7* 'cpu-time))
+
             (if (or (null? codepath) (not (eq? (car codepath) '*state*)) (not (eq? (cadr codepath) 'contracts)))
                 (error 'path-error "first path segment must be *state* and second must be contracts")
                 (begin ((record 'set!) (append '(ledger stage) codepath) src)
-                        (,vars-deploy varspath vars)))))
+                        (,vars-deploy varspath vars)))
+            (define time (- (*s7* 'cpu-time) starttime))
+            (if (< (tokens username) (* 10000 time)) 
+                (begin ((record 'set!) (append '(ledger stage) codepath) '#f)
+                      (,vars-deploy varspath '#f)
+                      (format #f "Insufficient tokens, ~a tokens are required" (* 10000 time))) 
+                (begin (set! (tokens username) (- (tokens username) (* 10000 time)))
+                    ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
+                    (format #f "Success! Remaining tokens: ~a" (tokens username))))
+                        ))))
 
 
     ; get rid of this index parameter 
     (define contract-call
       `(lambda (record username password codepath varpath index call)
         (begin (define deploy-later (hash-table)) 
-          (let ((contract-auth
-            (lambda ()
-            (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
-                    (let ((table (car ((ledger 'get) `(*state* data accounts) index))))
-                        (if (eq? table 'nothing)
-                            ; (display table)
-                            (error "account does not exist")
-                            (let ((table ((ledger 'get) `(*state* data accounts) index))) 
-                                    (begin (eval (cadr table))
-                                    ; (format #f "table: ~a current pass: ~a" accounts (accounts username))
-                                    (if (eq? (accounts username) #f) (error "account does not exist")
-                                    (if (string=? (accounts username) password)
-                                        #t
-                                        (error "wrong password")))
-                                        )))))))
+          (let (
               (cross-call (lambda (c-username c-password c-codepath c-varpath c-index c-call)
                 (let* ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record))
                         (defs (cadr ((ledger 'get) c-codepath c-index)))
@@ -64,9 +89,9 @@
                         (varsaf vars)
                         (wiwi (+ 5 5))
                         ; (dep (,vars-deploy c-varpath `(define vars ,vars)))
-                        ) (begin (set! (deploy-later c-varpath) `(define vars ,vars)) (format #f "defs: ~a call ~a depl: ~a" defs2 call-res deploy-later))))))
+                        ) (begin (set! (deploy-later c-varpath) `(define vars ,vars)) (format #f "Call result: ~a" call-res))))))
         (let* ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)) ; get stuff off the journal 
-                (whee (contract-auth))
+                (whee (,contract-auth username password))
                 (tokens-table ((ledger 'get) `(*state* data tokens) index))
                 (tokens-table (eval (cadr tokens-table)))
                 (times-table ((ledger 'get) `(*state* data times) index))
@@ -86,12 +111,12 @@
                   (call-res (eval call)) ; eval call
                   (time (- (*s7* 'cpu-time) start))
                   ) 
-            (if (< (tokens username) (* 10000 time)) (format #f "you dont have enough tokens you need ~a" (* 10000 time)) 
+            (if (< (tokens username) (* 10000 time)) (format #f "Insufficient tokens, ~a tokens are required" (* 10000 time)) 
             (begin (,vars-deploy varpath `(define vars ,vars)) 
                     (for-each (lambda (entry) (,vars-deploy (car entry) (cdr entry))) deploy-later)
                     (set! (tokens username) (- (tokens username) (* 10000 time)))
                     ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
-                    (format #f "defs: ~a call: ~a time: ~a tokens ~a deploy-later: ~a" defs call-res time (tokens username) deploy-later)
+                    (format #f "call: ~a time: ~a tokens ~a deploy-later: ~a" call-res time (tokens username) deploy-later)
                     ))
           ))))) ))
 
@@ -120,23 +145,23 @@
                                         ((record 'set!) (append '(ledger stage) `(*state* data accounts)) `(define accounts ,accounts))
                                         ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
                                         ((record 'set!) (append '(ledger stage) `(*state* data times)) `(define times ,times)))
-                                  (error "username already exists"))
-                                (format #f "ACCOUNTS ~a TOKENS ~a TIMES ~a" accounts tokens times)
+                                  (error 'auth-error "This username already exists"))
+                                (format #f "ACCOUNTS ~a TOKENS ~a TIMES ~a" accounts tokens times) ; don't show the private information
                                   )))))))
 
     
 
-    (define contract-call-debug
-      `(lambda (record codepath varpath index call)
-        (let ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)))
-          (let* ((defs (cadr ((ledger 'get) codepath index)))
-                  (varsdef (cadr ((ledger 'get) varpath index)))
-                  (code (cons defs (list call)))) 
-            ;  (display (eval (car code))) 
-            ;  (,vars-deploy varpath `(define vars ,vars))
-            (format #f "vars before: ~a defs: ~a call result: ~a " varsdef defs call)
-            
-          ))))
+    (define contract-dep-debug
+        `(lambda (record codepath src varspath vars) 
+            "Write the value to the path. Recursively generate parent
+            directories if necessary.
+            ; fix the below stuff 
+            > record (fnc): library to access record commands
+            > codepath (list sym|vec): path to the contract
+            > src (exp|sync-pair): contract to be stored at the path
+            < return (bool): boolean indicating success of the operation"
+            (format #f "vars: ~a code: ~a" (cadr src) (append '(begin) (cddr src)))))
+
     
 
     (define mysum `(lambda (num1 num2) (+ num1 num2)))
@@ -149,7 +174,7 @@
     ((record 'set!) '(control local contract-deploy) contract-deploy)
     ((record 'set!) '(control local mysum-call) mysum-call)
     ((record 'set!) '(control local contract-call) contract-call)
-    ((record 'set!) '(control local contract-call-debug) contract-call-debug)
+    ((record 'set!) '(control local contract-dep-debug) contract-dep-debug)
     ((record 'set!) '(control local create-account) create-account)
     ; ((record 'set!) '(control local contract-auth) contract-auth)
     )
