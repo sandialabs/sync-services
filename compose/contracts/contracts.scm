@@ -30,13 +30,13 @@
             > codepath (list sym|vec): path to the contract
             > src (exp|sync-pair): contract to be stored at the path
             < return (bool): boolean indicating success of the operation"
-            (if (or (null? varspath) (not (eq? (car varspath) '*state*)) (not (eq? (cadr codepath) 'contracts)))
+            (if (or (null? varspath) (not (eq? (car varspath) '*state*)) (not (eq? (cadr varspath) 'contracts)))
                 (error 'path-error "first path segment must be *state* and second must be contracts")
                 ((record 'set!) (append '(ledger stage) varspath) vars))))
 
     ; make this take a code path and a vars path, and the user inputs a hashmap for the var path
     (define contract-deploy
-        `(lambda (record username password codepath src varspath vars) 
+        `(lambda (record username password path src)  
             "Write the value to the path. Recursively generate parent
             directories if necessary.
             ; fix the below stuff 
@@ -58,14 +58,14 @@
                                               (tokens username)))
             (define starttime (*s7* 'cpu-time))
 
-            (if (or (null? codepath) (not (eq? (car codepath) '*state*)) (not (eq? (cadr codepath) 'contracts)))
+            (if (or (null? path) (not (eq? (car path) '*state*)) (not (eq? (cadr path) 'contracts)))
                 (error 'path-error "first path segment must be *state* and second must be contracts")
-                (begin ((record 'set!) (append '(ledger stage) codepath) src)
-                        (,vars-deploy varspath vars)))
+                (begin ((record 'set!) (append '(ledger stage) (append path '(code))) (append '(begin) (cddr src))) ; change these to like append or wtv
+                        (,vars-deploy (append path '(vars)) (cadr src))))
             (define time (- (*s7* 'cpu-time) starttime))
             (if (< (tokens username) (* 10000 time)) 
-                (begin ((record 'set!) (append '(ledger stage) codepath) '#f)
-                      (,vars-deploy varspath '#f)
+                (begin ((record 'set!) (append '(ledger stage) (append path '(vars))) '#f)
+                      (,vars-deploy (append path '(vars)) '#f)
                       (format #f "Insufficient tokens, ~a tokens are required" (* 10000 time))) 
                 (begin (set! (tokens username) (- (tokens username) (* 10000 time)))
                     ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
@@ -75,13 +75,13 @@
 
     ; get rid of this index parameter 
     (define contract-call
-      `(lambda (record username password codepath varpath index call)
+      `(lambda (record username password path index call)
         (begin (define deploy-later (hash-table)) 
           (let (
-              (cross-call (lambda (c-username c-password c-codepath c-varpath c-index c-call)
+              (cross-call (lambda (c-path c-index c-call)
                 (let* ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record))
-                        (defs (cadr ((ledger 'get) c-codepath c-index)))
-                        (varsdef (cadr ((ledger 'get) c-varpath c-index)))
+                        (defs (cadr ((ledger 'get) (append c-path '(code)) c-index)))
+                        (varsdef (cadr ((ledger 'get) (append c-path '(vars)) c-index)))
                         (code (cons defs (list c-call)))
                         (varsbf (eval varsdef))
                         (defs2 (eval defs)) ; eval defs 
@@ -89,7 +89,7 @@
                         (varsaf vars)
                         (wiwi (+ 5 5))
                         ; (dep (,vars-deploy c-varpath `(define vars ,vars)))
-                        ) (begin (set! (deploy-later c-varpath) `(define vars ,vars)) (format #f "Call result: ~a" call-res))))))
+                        ) (begin (set! (deploy-later (append c-path '(vars))) `(define vars ,vars)) (format #f "Call result: ~a" call-res))))))
         (let* ((ledger ((eval (cadr ((record 'get) '(record library ledger)))) record)) ; get stuff off the journal 
                 (whee (,contract-auth username password))
                 (tokens-table ((ledger 'get) `(*state* data tokens) index))
@@ -102,9 +102,9 @@
                                                     ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens)) 
                                                     ,,start-amt) ; refresh time, tokens=10
                                               (tokens username))) ; otherwise keep tokens the same 
-          (let* ((defs (cadr ((ledger 'get) codepath index)))
+          (let* ((defs (cadr ((ledger 'get) (append path '(code)) index)))
                   (start (*s7* 'cpu-time))
-                  (varsdef (cadr ((ledger 'get) varpath index)))
+                  (varsdef (cadr ((ledger 'get) (append path '(vars)) index)))
                   (code (cons defs (list call)))
                   (varsbf (eval varsdef))
                   (defs (eval defs)) ; eval defs 
@@ -112,7 +112,7 @@
                   (time (- (*s7* 'cpu-time) start))
                   ) 
             (if (< (tokens username) (* 10000 time)) (format #f "Insufficient tokens, ~a tokens are required" (* 10000 time)) 
-            (begin (,vars-deploy varpath `(define vars ,vars)) 
+            (begin (,vars-deploy (append path '(vars)) `(define vars ,vars)) 
                     (for-each (lambda (entry) (,vars-deploy (car entry) (cdr entry))) deploy-later)
                     (set! (tokens username) (- (tokens username) (* 10000 time)))
                     ((record 'set!) (append '(ledger stage) `(*state* data tokens)) `(define tokens ,tokens))
@@ -152,7 +152,7 @@
     
 
     (define contract-dep-debug
-        `(lambda (record codepath src varspath vars) 
+        `(lambda (record path src) 
             "Write the value to the path. Recursively generate parent
             directories if necessary.
             ; fix the below stuff 
@@ -160,7 +160,7 @@
             > codepath (list sym|vec): path to the contract
             > src (exp|sync-pair): contract to be stored at the path
             < return (bool): boolean indicating success of the operation"
-            (format #f "vars: ~a code: ~a" (cadr src) (append '(begin) (cddr src)))))
+            (format #f "vars: ~a code: ~a codepath: ~a varspath: ~a" (cadr src) (append '(begin) (cddr src)) (append path '(code)) (append path '(vars)))))
 
     
 
