@@ -64,7 +64,7 @@
                         (,vars-deploy (append path '(vars)) (cadr src))))
             (define time (- (*s7* 'cpu-time) starttime))
             (if (< (tokens username) (* 10000 time)) 
-                (begin ((record 'set!) (append '(ledger stage) (append path '(vars))) '#f)
+                (begin ((record 'set!) (append '(ledger stage) (append path '(code))) '#f)
                       (,vars-deploy (append path '(vars)) '#f)
                       (format #f "Insufficient tokens, ~a tokens are required" (* 10000 time))) 
                 (begin (set! (tokens username) (- (tokens username) (* 10000 time)))

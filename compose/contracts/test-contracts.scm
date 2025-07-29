@@ -6,10 +6,9 @@
 ; THESE ARE THE POSTER EXAMPLE ONES 
 
 (*local* "password" 
-    (contract-deploy (*state* contracts bill1 code) 
-                     (begin (define vote (lambda () (set! (vars 'votes) (+ 1 (vars 'votes))))) ) 
-                     (*state* contracts bill1 vars) 
-                     (define vars (hash-table 'votes 0))))
+    (contract-deploy (*state* contracts bill1) 
+                     (begin (define vars (hash-table 'votes 0)) 
+                            (define vote (lambda () (set! (vars 'votes) (+ 1 (vars 'votes))))) )))
 
 
 (*local* "password" 
