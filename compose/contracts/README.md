@@ -25,12 +25,12 @@ Please set the following environmental variables to configure the notary journal
 
 ## Usage
 
-# Account Creation:
+### Account Creation:
 In order to use any of the smart contract functions, an account must be created. Create an account using the following call in the interface.
 `(*local* "password" (create-account "your_username" "your_password" #f))`
 Upon creation, each account will be initialized with a set amount of compute tokens (this number can be set by anyone with the appropriate access). 
 
-# Contract Deployment:
+### Contract Deployment:
 To deploy a contract, use the following format. The path to the contract must begin with `*state*`. Contract definitions must be wrapped in a begin statement. Variables must be defined first, as a hash table called vars, with variables initialized to whatever values are necessary. #f can be used as an init value. There is no restriction on function names. When referring to variables in a function definition, refer to them as elements of the hash table, as shown in the below code. Functions can use the caller's username (shown in example ):
 ```
 (*local* "password" 
@@ -58,7 +58,7 @@ If a function needs to make a cross-contract call, it can be done as follows, us
                      )))
 ```
 
-# Calling a Contract:
+### Calling a Contract:
 To call a contract, use the format below:
 ```
 (*local* "password"  
@@ -77,6 +77,6 @@ Here is an example where a user calls the vote2 method defined above.
                    (vote2))) 
 ```
 
-# Compute Tokens:
+### Compute Tokens:
 Deploying and calling contracts require an account because each operation costs an amount of tokens proportional to the number of cpu cycles consumed by the operation. Tokens will be replenished to the starting amount when the replenishment period has passed (the replenishment period can be set by anyone with the appropriate access).
 
