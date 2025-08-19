@@ -4,7 +4,7 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/ledger:1.0.1
+    image: ghcr.io/sandialabs/sync-services/ontology:1.0.1
     container_name: journal
     networks:
       - docker
@@ -12,7 +12,7 @@ services:
       SECRET: ${SECRET}
       PERIODICITY: ${PERIODICITY:-2}
       WINDOW: ${WINDOW:-1024}
-      RUST_LOG: ${RUST_LOG:-INFO}
+      RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - database:/srv/database
 
