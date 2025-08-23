@@ -1,5 +1,18 @@
+* overall thoughts
+- general purpose would be better...
+  - implies that there is not a file-system.scm extension, right? right?
 * conclusion
+- question: should file system be a pure explorer?
 - the file-system thing is just a separate use case, not general-purpose explorer
+- differences between FS and sync web data models
+  - empty directories
+  - most attributes will be undefined and chmod/chown not possible
+    - could have a default file/directory and add optional (chmod/chown stuff)
+      - maybe that could go in a mirrored *state* *fs* folder
+  - lack of ability to build in more complex data
+  - scalability (do I really want to save a pdf as bytes in rocksdb?)
+    - why not?
+  - is everything just a text file unless it's bytes?
 * idea:
 - need function to check expression (maybe at control level?)
 * paths
@@ -19,3 +32,10 @@
 - if parses as expression, then do expression
 - if ascii, then string
 - if not ascii, then bytes
+* dones
+- figure out why there is such a long loop process start startup
+* Todos
+- get chmod/chown/etc to work
+- **really need to figure this out** get long documents to work
+- handle refcount deletes
+- have real directory attributes

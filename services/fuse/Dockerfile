@@ -8,6 +8,9 @@ RUN apk update
 RUN apk --no-cache add tini bash samba tzdata shadow fuse-dev
 ENV FUSE_LIBRARY_PATH=/usr/lib/libfuse.so
 
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
 RUN addgroup -S smb
 RUN rm -f /etc/samba/smb.conf && rm -rf /tmp/* /var/cache/apk/*
 
@@ -28,8 +31,6 @@ ENV RW=true
 
 HEALTHCHECK --interval=60s --timeout=15s CMD smbclient --configfile=/etc/samba.conf -L \\localhost -U % -m SMB3
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
 COPY service.py .
 
 RUN echo "user_allow_other" >> /etc/fuse.conf

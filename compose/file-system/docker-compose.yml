@@ -14,7 +14,7 @@ services:
     security_opt:
       - apparmor:unconfined
     ports:
-      - 445:445
+      - ${SAMBA_PORT:-445}:445
     networks:
       - docker
     environment:
@@ -23,25 +23,20 @@ services:
       SAMBA_SECRET: ${SAMBA_SECRET:-secret}
       SAMBA_SHARE: ${SAMBA_SHARE:-data}
     volumes:
-      - ./data-back:/data-back
-
-  cryptography:
-    image: ghcr.io/sandialabs/sync-services/cryptography:1.0.0
-    container_name: cryptography
-    networks:
-      - docker
+      - ./data-back:/srv/data-back
 
   journal:
-    image: ghcr.io/sandialabs/sync-services/ledger:1.0.0
+    image: ghcr.io/sandialabs/sync-services/ledger:1.0.1
     container_name: journal
     networks:
       - docker
-    depends_on:
-      - cryptography
     environment:
       SECRET: ${SECRET}
       PERIODICITY: ${PERIODICITY:-2}
-      CRYPTOGRAPHY: http://cryptography.docker
+      WINDOW: ${WINDOW:-1024}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - database:/srv/database
 
   interface:
     image: nginx:stable-alpine
@@ -54,3 +49,6 @@ services:
       - docker
     ports:
       - "${PORT:-8192}:80"
+
+volumes:
+  database:

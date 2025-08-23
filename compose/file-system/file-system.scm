@@ -38,7 +38,7 @@
                           file-system-file-make!
                           file-system-file-read
                           file-system-file-write!
-                          file-system-file-delet!)))
+                          file-system-file-delete!)))
     (if (null? functions) #t
         ;; todo: wrap the function to access ledger
         ;;  - pass in ledger instead of record
