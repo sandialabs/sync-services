@@ -1,0 +1,7 @@
+to build the ledger mcp interface, 
+
+1. cd ledger
+2. npm install
+3. npm run build
+
+then you'll need to add a config so that mcphost can invoke the interface, in .mcphost.yml

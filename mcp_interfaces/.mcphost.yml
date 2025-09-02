@@ -1,0 +1,7 @@
+# MCPHost Configuration File
+# This is a working config for the ledger mcp
+
+mcpServers:
+   ledger:
+     type: "local"
+     command: ["node", "/home/ubuntu/journalmcp/ledger/build/index.js", "http://localhost:8192/.interface/", "${env://LEDGER_PASS}"]
