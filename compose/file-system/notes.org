@@ -3,6 +3,12 @@
   - implies that there is not a file-system.scm extension, right? right?
 * conclusion
 - question: should file system be a pure explorer?
+  - i.e.: do we actually need a specialized interface for this?
+  - pros:
+    - single source of truth
+  - cons:
+    - performance for large files
+      - but we mainly need this for other reasons
 - the file-system thing is just a separate use case, not general-purpose explorer
 - differences between FS and sync web data models
   - empty directories
@@ -18,7 +24,7 @@
 * paths
 ** reading
 - if symbol, then as-is
-- if bytes, then interpret has hex
+- if bytes, then interpret as hex
 ** writing
 - only allow writing strings
   - if try to write hex, then escape somehow
@@ -34,7 +40,7 @@
 - if not ascii, then bytes
 * dones
 - figure out why there is such a long loop process start startup
-* Todos
+* todos
 - get chmod/chown/etc to work
 - **really need to figure this out** get long documents to work
 - handle refcount deletes

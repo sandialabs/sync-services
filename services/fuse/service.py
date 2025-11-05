@@ -1,6 +1,5 @@
-# initial code taken from: https://www.stavros.io/posts/python-fuse-filesystem/
-
 import os
+import ast
 import grp
 import pwd
 import sys
@@ -17,48 +16,88 @@ from fuse import FUSE, FuseOSError, ENOTSUP, Operations, fuse_get_context
 
 config = {}
 
+GID = grp.getgrnam("smb").gr_gid
+UID = pwd.getpwnam("samba").pw_uid
 
-def query(expression, is_local=True):
-    if is_local:
-        return requests.post(
+
+def python_to_lisp(expression):
+    def _recurse(x):
+        if type(x) is list:
+            return f"({' '.join(_recurse(y) for y in x)})"
+        elif type(x) is int:
+            return str(x)
+        elif type(x) is float:
+            return str(x)
+        elif type(x) is bool:
+            return "#t" if x else "#f"
+        elif type(x) is str:
+            if any(y in x for y in "()"):
+                raise ValueError("Unable to convert string with parenthesis")
+            elif any(y in x for y in "()\"'\\ \t\n\r"):
+                return f'"{x}"'
+            else:
+                return x
+        else:
+            raise ValueError("Unhandled python type")
+
+    return _recurse(expression)
+
+
+def lisp_to_python(expression):
+    def _recurse(x):
+        if not x.startswith("("):
+            if x.startswith('"') and x.endswith('"'):
+                return f'"{x}"'
+            elif x == "#t":
+                return True
+            elif x == "#f":
+                return False
+            elif type(ast.eval_literal(x)) is int:
+                return int(x)
+            elif type(ast.eval_literal(x)) is float:
+                return float(x)
+            else:
+                return x
+
+        tokens = []
+        current = ""
+        depth = 0
+
+        for char in x[1:-1]:
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            elif char == " " and depth == 0:
+                if current:
+                    tokens.append(current)
+                    current = ""
+                continue
+            current += char
+
+        if current:
+            tokens.append(current)
+
+        return [_recurse(token) for token in tokens]
+
+    return _recurse(expression)
+
+
+def query(expression):
+    return lisp_to_python(
+        requests.post(
             config["JOURNAL"],
-            '(*local* "{secret}" {expression})'.format(
-                secret=config["SECRET"],
-                expression=expression,
-            ),
+            python_to_lisp(["*local*", f'"{config["SECRET"]}"', expression]),
         ).text
-    else:
-        return requests.post(
-            config["JOURNAL"],
-            expression,
-        ).text
+    )
 
 
 def pathify(path):
-    return " ".join(urllib.parse.unquote(x) for x in path.split("/") if x)
-
-
-def parse(expression):
-    print(expression, flush=True)
-    if expression.startswith("(directory "):
-        return (
-            "directory",
-            [urllib.parse.quote(x) for x in expression[12:-5].split(" ")],
-        )
-    elif expression.startswith("(object "):
-        return ("object", expression[9:-2])
-    elif expression.startswith("(nothing "):
-        return ("nothing", None)
-    elif expression.startswith("(unknown "):
-        return ("unknown", None)
-    else:
-        print("Error: ", expression, flush=True)
-        return ("error", None)
+    return [urllib.parse.unquote(x) for x in path.split("/") if x]
 
 
 class Passthrough(Operations):
-    def __init__(self, root):
-        self.root = root
+    def __init__(self):
         self.handles = {}
 
     # Helpers
@@ -75,66 +114,34 @@ class Passthrough(Operations):
 
     def access(self, path, mode):
         print("access", path, mode, flush=True)
-        # full_path = self._full_path(path)
-        # if not os.access(full_path, mode):
-        #     raise FuseOSError(errno.EACCES)
         return 0
 
     def chmod(self, path, mode):
         print("chmod", path, flush=True)
-        # full_path = self._full_path(path)
-        # return os.chmod(full_path, mode)
+        result = query("file-system-meta-edit!", pathify(path), [["st_mode", mode]])
+        if result is not True:
+            raise FuseOSError(errno.EROFS)
         return 0
 
     def chown(self, path, uid, gid):
         print("chown", path, flush=True)
-        # full_path = self._full_path(path)
-        # return os.chown(full_path, uid, gid)
+        result = query(
+            "file-system-meta-edit!",
+            pathify(path),
+            [["st_uid", uid, "std_gid", gid]],
+        )
+
+        if result is not True:
+            raise FuseOSError(errno.EROFS)
         return 0
 
     def getattr(self, path, fh=None):
         print("getattr", path, flush=True)
-        gid = grp.getgrnam("smb").gr_gid
-        uid = pwd.getpwnam("samba").pw_uid
-        dir_default = {
-            "st_atime": 1749684549.1848755,
-            "st_ctime": 1749678764.6812148,
-            "st_gid": gid,
-            "st_mode": 16895,
-            "st_mtime": 1749678764.6812148,
-            "st_nlink": 2,
-            "st_size": 4096,
-            "st_uid": uid,
-        }
-
-        result = parse(query("(ledger-get (*state* {}))".format(pathify(path))))
-
-        if (
-            result[0] == "directory"
-            or path == "/"
-            or path == f"/{self.__class__.__name__}"
-        ):
-            return dir_default
-        elif result[0] == "object":
-            print("result:", urllib.parse.unquote(result[1]), flush=True)
-            return json.loads(urllib.parse.unquote(result[1]))["attributes"]
+        result = query(["file-system-read-meta", ["*state*"] + pathify(path)])
+        if result[0] == "object":
+            return dict(result[1])
         else:
             raise FuseOSError(errno.ENOENT)
-            # full_path = self._full_path(path)
-            # st = os.lstat(self._full_path(path))
-            # return dict(
-            #     (key, getattr(st, key))
-            #     for key in (
-            #         "st_atime",
-            #         "st_ctime",
-            #         "st_gid",
-            #         "st_mode",
-            #         "st_mtime",
-            #         "st_nlink",
-            #         "st_size",
-            #         "st_uid",
-            #     )
-            # )
 
     def getxattr(self, path, name, position=0):
         print("getxattr", path, name, flush=True)
@@ -148,7 +155,7 @@ class Passthrough(Operations):
         print("readdir", path, flush=True)
         dirents = [".", ".."]
 
-        result = parse(query("(ledger-get (*state* {}))".format(pathify(path))))
+        result = query("ledger-get", pathify(path))
 
         if result[0] == "directory":
             dirents.extend(result[1])
@@ -180,13 +187,20 @@ class Passthrough(Operations):
         print("rmdir", path, flush=True)
         # full_path = self._full_path(path)
         # return os.rmdir(full_path)
-        query("(ledger-set! (*state* {}) #f)".format(pathify(path)))
+
+        # todo: check that it is an empty file system
+        query("(file-system-remove! (*state* {}))".format(pathify(path)))
         return 0
 
     def mkdir(self, path, mode):
         print("mkdir", path, flush=True)
         # return os.mkdir(self._full_path(path), mode)
-        query('(ledger-set! (*state* {} .dir) "0x6868")'.format(pathify(path)))
+        query(
+            "(file-system-make-directory! (*state* {}) {})".format(
+                pathify(path),
+                "()",
+            )
+        )
         return 0
 
     def statfs(self, path):
@@ -211,27 +225,47 @@ class Passthrough(Operations):
 
     def unlink(self, path):
         print("unlink", path, flush=True)
-        query("(ledger-set! (*state* {}) #f)".format(pathify(path)))
+        # todo: make sure it's a file
+        query("(file-system-remove! (*state* {}))".format(pathify(path)))
         return
 
     def symlink(self, name, target):
         print("symlink", target, flush=True)
         # return os.symlink(target, self._full_path(name))
+        query(
+            "(file-system-link! (*state* {}) (*state* {}))".format(
+                pathify(name),
+                pathify(target),
+            )
+        )
         return 0
 
     def rename(self, old, new):
         print("rename", old, flush=True)
-        # return os.rename(self._full_path(old), self._full_path(new))
+        query(
+            "(file-system-rename! (*state* {}) (*state* {}))".format(
+                pathify(old),
+                pathify(new),
+            )
+        )
         return 0
 
     def link(self, target, name):
         print("link", target, flush=True)
         # return os.link(self._full_path(name), self._full_path(target))
+        # todo: return some kind of error
         return 0
 
     def utimens(self, path, times=None):
         print("utimens", path, flush=True)
         # return os.utime(self._full_path(path), times)
+        now = time.time()
+        query(
+            "(file-system-edit-meta! (*state* {}) {})".format(
+                pathify(path),
+                json2lisp({"st_atime": now, "st_mtime": now}),
+            )
+        )
         return 0
 
     # File methods
@@ -273,7 +307,7 @@ class Passthrough(Operations):
         print(
             "query:",
             query(
-                '(ledger-set! (*state* {}) "{}")'.format(
+                '(ledger-set! (*state* ) "{}")'.format(
                     pathify(path),
                     urllib.parse.quote(json.dumps(info)),
                 )
@@ -376,11 +410,12 @@ class Passthrough(Operations):
 
 def main(mountpoint, root):
     FUSE(
-        Passthrough(root),
+        Passthrough(),
         mountpoint,
         nothreads=True,
         foreground=True,
         allow_other=True,
+        fsname="",
     )
 
 

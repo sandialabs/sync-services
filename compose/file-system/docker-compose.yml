@@ -26,7 +26,9 @@ services:
       - ./data-back:/srv/data-back
 
   journal:
-    image: ghcr.io/sandialabs/sync-services/ledger:1.0.1
+    # image: ghcr.io/sandialabs/sync-services/ledger:1.0.1
+    build:
+      context: .
     container_name: journal
     networks:
       - docker
