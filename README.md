@@ -39,6 +39,9 @@ If you want to run or develop individual microservices, see the README in each s
 - **[sync-records](https://github.com/sandialabs/sync-records):**  
   A collection of reusable Scheme modules and test suites for advanced record and ledger operations.
 
+- **[sync-analysis](https://github.com/sandialabs/sync-analysis):**  
+  Frameworks and tools for analyzing Synchronic Web experiments and deployments.
+
 ---
 
 ## Contributing
