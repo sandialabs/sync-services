@@ -1,9 +1,6 @@
 FROM ghcr.io/sandialabs/sync-journal/journal-sdk:1.0.4
 
-ENV HTTP_PROXY=http://proxy.sandia.gov:80
-ENV HTTPS_PROXY=http://proxy.sandia.gov:80
-
-ARG REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/4192f8b055c3f2d4d8438cd7a577ed4e853a334e/lisp/
+ARG REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/b4c2cdc31f03b5a640ec9690b51c2b672d23c62d/lisp/
 
 RUN wget --no-check-certificate $REPOSITORY/control.scm
 RUN wget --no-check-certificate $REPOSITORY/standard.scm

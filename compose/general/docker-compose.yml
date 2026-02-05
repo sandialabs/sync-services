@@ -4,7 +4,7 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/basic:1.0.2
+    image: ghcr.io/sandialabs/sync-services/general:1.0.2
     container_name: journal
     networks:
       - docker
