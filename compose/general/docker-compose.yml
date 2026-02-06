@@ -10,7 +10,7 @@ services:
       - docker
     environment:
       SECRET: ${SECRET}
-      PERIODICITY: ${PERIODICITY:-2}
+      PERIOD: ${PERIOD:-2}
       WINDOW: ${WINDOW:-1024}
       RUST_LOG: ${RUST_LOG:-INFO}
     volumes:

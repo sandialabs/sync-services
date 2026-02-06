@@ -21,4 +21,4 @@ interface=$( cat interface.scm )
 boot="($interface '$SECRET '$SECRET $WINDOW $control $standard '$chain '$tree '$configuration '$ledger)"
 step="((function *step*) (arguments ()) (authentication $SECRET))"
 
-RUST_LOG=$RUST_LOG ./journal-sdk -b "$boot" -p 80 -c $PERIODICITY -s "$step" -d database
+RUST_LOG=$RUST_LOG ./journal-sdk -b "$boot" -p 80 -c $PERIOD -s "$step" -d database
