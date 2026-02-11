@@ -16,15 +16,6 @@ services:
     volumes:
       - database:/srv/database
 
-  explorer:
-    image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
-    container_name: explorer
-    networks:
-      - docker
-    depends_on:
-      - journal
-    command: python service.py --secret $SECRET --journal http://journal.docker/interface --port 80
-
   interface:
     image: nginx:stable-alpine
     container_name: interface

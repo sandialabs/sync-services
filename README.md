@@ -14,7 +14,6 @@ This repository contains services and deployment configurations for the [Synchro
 - **services/**  
   Standalone microservice components that provide additional functionality to composed deployments.  
   - These are not full applications by themselves, but are designed to be integrated into Compose environments or other orchestration systems.
-  - Example: the `explorer` service provides a point-and-click front-end for exploring Synchronic Web record and ledger interfaces.
 
 ---
 
@@ -26,8 +25,6 @@ To get started, choose a Compose environment that matches your use case:
 - [compose/ontology/README.md](compose/ontology/README.md): Deploy an ontology journal for semantic data and provenance workflows.
 
 Each Compose README provides step-by-step instructions, required environment variables, and example usage. These environments are designed for rapid deployment and experimentation—just follow the linked guides for details.
-
-If you want to run or develop individual microservices, see the README in each service directory (e.g., [services/explorer/README.md](services/explorer/README.md)).
 
 ---
 
