@@ -4,26 +4,17 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/ledger:1.0.2
+    image: ghcr.io/sandialabs/sync-services/general:1.0.0
     container_name: journal
     networks:
       - docker
     environment:
       SECRET: ${SECRET}
-      PERIODICITY: ${PERIODICITY:-2}
+      PERIOD: ${PERIOD:-2}
       WINDOW: ${WINDOW:-1024}
       RUST_LOG: ${RUST_LOG:-INFO}
     volumes:
       - database:/srv/database
-
-  explorer:
-    image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
-    container_name: explorer
-    networks:
-      - docker
-    depends_on:
-      - journal
-    command: python service.py --secret $SECRET --journal http://journal.docker/interface --port 80
 
   interface:
     image: nginx:stable-alpine
