@@ -1,6 +1,6 @@
 FROM ghcr.io/sandialabs/sync-journal/journal-sdk:1.0.5
 
-ARG REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/bb412a24b18ec2f287922b10e633f9853adbeab1/lisp/
+ARG REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/2d846aa57a31af85c6f84efd26b2129f7681b05a/lisp/
 
 RUN wget $REPOSITORY/control.scm
 RUN wget $REPOSITORY/standard.scm
