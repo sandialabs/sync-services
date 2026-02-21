@@ -1,4 +1,4 @@
-name: General Journal
+name: Explorer Service
 
 on:
   push:
@@ -7,14 +7,14 @@ on:
     branches: [ "main" ]
 
 concurrency:
-  group: "general"
+  group: "explorer"
   cancel-in-progress: true
 
 jobs:
-  build:
+  run:
     runs-on: ubuntu-latest
     permissions: write-all
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     steps:
       - name: Login to Github registry
         uses: docker/login-action@v2
@@ -26,13 +26,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Build and push versioned Docker image
         run: |
-          version=$( cat ./compose/general/version.txt )
-          docker build ./compose/general --tag ghcr.io/${{ github.repository }}/general:$version
-          docker push ghcr.io/${{ github.repository }}/general:$version
+          version=$( cat ./services/explorer/version.txt )
+          docker build ./services/explorer --tag ghcr.io/${{ github.repository }}/explorer:$version
+          docker push ghcr.io/${{ github.repository }}/explorer:$version
       - name: Retag and push latest Docker image
         if: github.ref == 'refs/heads/main'
         run: |
-          version=$( cat ./compose/general/version.txt )
-          docker tag ghcr.io/${{ github.repository }}/general:$version \
-                     ghcr.io/${{ github.repository }}/general:latest 
-          docker push ghcr.io/${{ github.repository }}/general:latest
+          version=$( cat ./services/explorer/version.txt )
+          docker tag ghcr.io/${{ github.repository }}/explorer:$version \
+                     ghcr.io/${{ github.repository }}/explorer:latest 
+          docker push ghcr.io/${{ github.repository }}/explorer:latest

@@ -1,0 +1,120 @@
+.content-viewer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 15px;
+}
+
+.content-path-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.content-path {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.content-type {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.content-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.content-text {
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.content-editor {
+  width: 100%;
+  min-height: 400px;
+  padding: 10px;
+  border: 1px solid var(--border-color-light);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  resize: vertical;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.directory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.directory-list h3 {
+  color: var(--text-primary);
+}
+
+.directory-item {
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 40px;
+}
+
+/* Verification tab styles */
+.proof-viewer {
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  padding: 15px;
+  overflow-x: auto;
+}
+
+.proof-content {
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* Syntax highlighting for JSON */
+.json-key {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.json-string {
+  color: var(--green);
+}
+
+.json-number {
+  color: var(--orange);
+}
+
+.json-boolean {
+  color: var(--purple);
+}
+
+.json-null {
+  color: var(--red);
+}

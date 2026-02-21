@@ -16,6 +16,15 @@ services:
     volumes:
       - database:/srv/database
 
+  explorer:
+    image: ghcr.io/sandialabs/sync-services/explorer:1.0.1
+    container_name: explorer
+    networks:
+      - docker
+    environment:
+      SYNC_EXPLORER_ENDPOINT: /interface/json
+      SYNC_EXPLORER_PASSWORD: ${SECRET}
+
   interface:
     image: nginx:stable-alpine
     container_name: interface
@@ -23,6 +32,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - journal
+      - explorer
     networks:
       - docker
     ports:
