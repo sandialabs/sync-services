@@ -34,7 +34,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
     <>
       <div className="toolbar">
         <img 
-          src="/logo.png" 
+          src={process.env.PUBLIC_URL + '/logo.png'}
           alt="Synchronic Web" 
           className="toolbar-logo"
           onClick={handleLogoClick}
