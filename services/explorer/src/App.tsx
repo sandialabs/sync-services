@@ -17,6 +17,9 @@ const getEnvVar = (key: string): string => {
   return process.env[`REACT_APP_${key}`] || '';
 };
 
+// Get the endpoint from environment variable (not user-configurable)
+const JOURNAL_ENDPOINT = getEnvVar('SYNC_EXPLORER_ENDPOINT');
+
 // Encode a JournalPath to a URL-safe string
 const encodePathToHash = (path: JournalPath): string => {
   return encodeURIComponent(JSON.stringify(path));
@@ -72,7 +75,7 @@ const App: React.FC = () => {
     const initialExpanded = initialPath ? generateExpandedNodesFromPath(initialPath) : new Set<string>();
     
     return {
-      endpoint: getEnvVar('SYNC_EXPLORER_ENDPOINT'),
+      endpoint: JOURNAL_ENDPOINT,
       authentication: getEnvVar('SYNC_EXPLORER_PASSWORD'),
       rootIndex: 0,
       selectedPath: initialPath,
@@ -108,11 +111,11 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (appState.endpoint && appState.authentication) {
-      const service = new JournalService(appState.endpoint, appState.authentication);
+    if (JOURNAL_ENDPOINT && appState.authentication) {
+      const service = new JournalService(JOURNAL_ENDPOINT, appState.authentication);
       setJournalService(service);
     }
-  }, [appState.endpoint, appState.authentication]);
+  }, [appState.authentication]);
 
   // Auto-synchronize on initial load when journalService is ready
   useEffect(() => {
@@ -236,13 +239,11 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <ToolBar
-        endpoint={appState.endpoint}
         authentication={appState.authentication}
         rootIndex={appState.rootIndex}
         isLoading={appState.isLoading}
         error={appState.error}
         theme={theme}
-        onEndpointChange={(endpoint) => updateAppState({ endpoint })}
         onAuthenticationChange={(authentication) => updateAppState({ authentication })}
         onSynchronize={handleSynchronize}
         onThemeToggle={toggleTheme}

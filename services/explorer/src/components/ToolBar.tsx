@@ -3,26 +3,22 @@ import './ToolBar.css';
 import HelpModal from './HelpModal';
 
 interface ToolBarProps {
-  endpoint: string;
   authentication: string;
   rootIndex: number;
   isLoading: boolean;
   error: string | null;
   theme: 'light' | 'dark';
-  onEndpointChange: (endpoint: string) => void;
   onAuthenticationChange: (authentication: string) => void;
   onSynchronize: () => void;
   onThemeToggle: () => void;
 }
 
 const ToolBar: React.FC<ToolBarProps> = ({
-  endpoint,
   authentication,
   rootIndex,
   isLoading,
   error,
   theme,
-  onEndpointChange,
   onAuthenticationChange,
   onSynchronize,
   onThemeToggle,
@@ -48,13 +44,6 @@ const ToolBar: React.FC<ToolBarProps> = ({
 
         <div className="toolbar-inputs">
           <input
-            type="text"
-            className="input"
-            placeholder="Journal endpoint URL"
-            value={endpoint}
-            onChange={(e) => onEndpointChange(e.target.value)}
-          />
-          <input
             type="password"
             className="input"
             placeholder="Authentication password"
@@ -66,7 +55,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
         <button 
           className="button button-primary"
           onClick={onSynchronize}
-          disabled={!endpoint || !authentication || isLoading}
+          disabled={!authentication || isLoading}
         >
           {isLoading ? <span className="loading-spinner" /> : 'Synchronize'}
         </button>
