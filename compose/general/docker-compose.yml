@@ -41,6 +41,7 @@ services:
     depends_on:
       - journal
       - explorer
+      - workbench
     networks:
       - docker
     ports:
