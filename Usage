@@ -1,0 +1,5 @@
+# Default: reads functions.scm, writes functions.json
+python convert_functions_to_json.py
+
+# Custom files
+python convert_functions_to_json.py functions.scm output.json

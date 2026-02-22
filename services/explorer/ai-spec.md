@@ -159,9 +159,10 @@ Upon refresh (of the page, or manually via the synchronize button) the app shoul
 
 ## Tool Bar
 
-The navigation bar should contain the following elements:
+The tool bar should contain the following elements:
+- a home button displaying a circular synchronic web logo that allows the user to go to the "home" page
+- authentication input: a single free-text field to a password to use for authentication
 - synchronize button: to get the latest size and use that as the root of the path query (side effect: reset everything else on the page)
-- endpoint/authentication input: a pair of free-text fields to point the application to a backend journal and password to use for authentication
 - status message: some type of dynamic message or loading graphic to let the user know a network query is being executed and when it is finished
 - help button: a button that displays a modal with information taken from this document about how to interact with the explorer
 

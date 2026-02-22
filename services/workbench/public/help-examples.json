@@ -1,0 +1,14 @@
+{
+  "add": {
+    "description": "Add two and two together",
+    "code": "(*call* \"mysecret\" '(+ 2 2))"
+  },
+  "fibinacci": {
+    "description": "Compute a fibinacci sequence",
+    "code": "(*call* \"mysecret\" '(let loop ((a 0) (b 1) (n 10) (acc ())) (if (= n 0) (reverse acc) (loop b (+ a b) (- n 1) (cons a acc)))))"
+  },
+  "merkle": {
+    "description": "Compute the digest of four short byte vectors",
+    "code": "(*call* \"mysecret\" '(sync-digest (sync-cons (sync-cons #u(0) #u(1)) (sync-cons #u(2) #u(3)))))"
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "size": {
+    "description": "Returns the current size (number of entries) of the permanent chain. This represents how many state snapshots have been committed.",
+    "template": "((function size))",
+    "example": "((function size))",
+    "permission": "any"
+  },
+  "synchronize": {
+    "description": "Returns a serialized proof of the chain state up to the specified index. Used for peer synchronization to verify chain integrity and fetch missing data.",
+    "template": "((function synchronize) (arguments (<index>)))",
+    "example": "((function synchronize) (arguments (0)))",
+    "permission": "any"
+  },
+  "resolve": {
+    "description": "Returns a serialized proof for data at a specific path and index. Used by peers to fetch and verify specific data from the chain.",
+    "template": "((function resolve) (arguments (<index> <path>)))",
+    "example": "((function resolve) (arguments (0 ((*state* key)))))",
+    "permission": "any"
+  },
+  "information": {
+    "description": "Returns public configuration information about this journal, including the public key and window size. Used by peers to identify and verify this journal.",
+    "template": "((function information))",
+    "example": "((function information))",
+    "permission": "any"
+  },
+  "get": {
+    "description": "Retrieves data at the specified path. If the first element is an integer, it fetches from that chain index (negative indices count from the end). Otherwise fetches from the current staging area. When details? is true, returns content, pinned status, and proof.",
+    "template": "((function get) (arguments (<path> <details?>)) (authentication <secret>))",
+    "example": "((function get) (arguments (((*state* mykey)) #t)) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "set!": {
+    "description": "Sets a value at the specified path in the staging area. The path must start with a list beginning with '*state*'. Changes are staged until the next step-chain! commits them.",
+    "template": "((function set!) (arguments (<path> <value>)) (authentication <secret>))",
+    "example": "((function set!) (arguments (((*state* mykey)) \"myvalue\")) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "pin!": {
+    "description": "Pins data at the specified path to prevent it from being pruned. The path must include a chain index as the first element. Pinned data is preserved in the permanent chain.",
+    "template": "((function pin!) (arguments (<path>)) (authentication <secret>))",
+    "example": "((function pin!) (arguments ((-1 (*state* important-data)))) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "unpin!": {
+    "description": "Unpins data at the specified path, allowing it to be pruned. The path must include a chain index as the first element.",
+    "template": "((function unpin!) (arguments (<path>)) (authentication <secret>))",
+    "example": "((function unpin!) (arguments ((-1 (*state* old-data)))) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "general-peer!": {
+    "description": "Adds a new peer with the given name and endpoint URL. This creates remote procedure bindings for information, synchronize, and resolve operations with the peer.",
+    "template": "((function general-peer!) (arguments ({\"*type/string*\": \"<name>\"} {\"*type/string*\": \"<endpoint>\"})) (authentication <secret>))",
+    "example": "((function general-peer!) (arguments ({\"*type/string*\": \"alice\"} {\"*type/string*\": \"http://alice.example.com/interface\"})) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "configuration": {
+    "description": "Returns the full configuration of the ledger, including both public and private settings.",
+    "template": "((function configuration) (authentication <secret>))",
+    "example": "((function configuration) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "peer!": {
+    "description": "Low-level function to add a peer with custom remote procedure bindings. Requires providing information, synchronize, and resolve lambda functions.",
+    "template": "((function peer!) (arguments (<name> <info>)) (authentication <secret>))",
+    "example": "((function peer!) (arguments (alice ((information (lambda () ...)) (synchronize (lambda (index) ...)) (resolve (lambda (source target) ...))))) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "peers": {
+    "description": "Returns a list of all configured peer names.",
+    "template": "((function peers) (authentication <secret>))",
+    "example": "((function peers) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "step-generate": {
+    "description": "Generates the list of sub-steps needed for a full chain step. Returns a list of step operations including step-peer! for each peer and step-chain! to commit.",
+    "template": "((function step-generate) (authentication <secret>))",
+    "example": "((function step-generate) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "step-chain!": {
+    "description": "Commits the current staging area to the permanent chain. Signs the new chain entry with the journal's secret key. Prunes old entries based on the window configuration.",
+    "template": "((function step-chain!) (authentication <secret>))",
+    "example": "((function step-chain!) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "step-peer!": {
+    "description": "Synchronizes with a specific peer by fetching their latest chain state and verifying signatures. Updates the staging area with the peer's chain data.",
+    "template": "((function step-peer!) (arguments (<peer-name>)) (authentication <secret>))",
+    "example": "((function step-peer!) (arguments (alice)) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "*eval*": {
+    "description": "Evaluates an arbitrary Scheme expression with full access to the journal internals. Extremely powerful and dangerous - use with caution.",
+    "template": "((*eval* <admin-secret> <expression>))",
+    "example": "((*eval* \"admin-secret\" (+ 1 2 3)))",
+    "permission": "root"
+  },
+  "*call*": {
+    "description": "Calls a function with the root object as an argument. The function receives direct access to the root data structure.",
+    "template": "((*call* <admin-secret> <function>))",
+    "example": "((*call* \"admin-secret\" (lambda (root) ((root 'get) '(control object ledger)))))",
+    "permission": "root"
+  },
+  "*step*": {
+    "description": "Executes a full step cycle, running all registered step handlers in order. This is typically called automatically by the journal daemon.",
+    "template": "((*step* <admin-secret>))",
+    "example": "((*step* \"admin-secret\"))",
+    "permission": "root"
+  },
+  "*set-secret*": {
+    "description": "Changes the admin secret used for root-level operations. Requires the current admin secret for authentication.",
+    "template": "((*set-secret* <current-secret> <new-secret>))",
+    "example": "((*set-secret* \"old-secret\" \"new-secret\"))",
+    "permission": "root"
+  },
+  "*set-step*": {
+    "description": "Sets the step handler function that is called during *step* operations. The function receives the root object and admin secret.",
+    "template": "((*set-step* <admin-secret> <step-function>))",
+    "example": "((*set-step* \"admin-secret\" (lambda (root secret) ...))",
+    "permission": "root"
+  },
+  "*set-query*": {
+    "description": "Sets the query handler function that processes all incoming queries. The function receives the root object and query data.",
+    "template": "((*set-query* <admin-secret> <query-function>))",
+    "example": "((*set-query* \"admin-secret\" (lambda (root query) ...))",
+    "permission": "root"
+  },
+  "*secret*": {
+    "description": "Changes the user authentication secret. Requires the current user secret for authentication.",
+    "template": "((function *secret*) (arguments (<old-secret> <new-secret>)) (authentication <old-secret>))",
+    "example": "((function *secret*) (arguments (\"old-user-secret\" \"new-user-secret\")) (authentication \"old-user-secret\"))",
+    "permission": "user"
+  }
+}
