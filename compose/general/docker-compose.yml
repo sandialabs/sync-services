@@ -26,7 +26,7 @@ services:
       SYNC_EXPLORER_PASSWORD: ${SECRET}
 
   workbench:
-    image: ghcr.io/sandialabs/sync-services/explorer:1.0.0
+    image: ghcr.io/sandialabs/sync-services/workbench:1.0.0
     container_name: workbench
     networks:
       - docker
