@@ -1,46 +1,66 @@
-# Synchronic Web Services
+# Synchronic Web Workbench
 
-This repository contains services and deployment configurations for the [Synchronic Web Journal](https://github.com/sandialabs/sync-journal) and [Synchronic Web Records](https://github.com/sandialabs/sync-records). It provides both ready-to-deploy, all-in-one Compose environments and individual microservice components that support Synchronic Web applications.
+A developer interface for querying synchronic web journals.
 
----
+## Overview
 
-## Repository Structure
+The Synchronic Web Workbench provides a structured interface to interact programmatically with synchronic web journals. It allows developers to write queries, view outputs, and explore the journal API.
 
-- **compose/**  
-  Pre-packaged, batteries-included Docker Compose environments for deploying Synchronic Web journals and supporting services.  
-  - Each subdirectory (e.g., `ledger/`, `ontology/`) contains everything needed to launch a complete application stack, including configuration, orchestration, and example scripts.
-  - Ideal for users who want to quickly deploy a working Synchronic Web journal with minimal setup.
+## Development
 
-- **services/**  
-  Standalone microservice components that provide additional functionality to composed deployments.  
-  - These are not full applications by themselves, but are designed to be integrated into Compose environments or other orchestration systems.
+### Prerequisites
 
----
+- Node.js 18+
+- npm
 
-## Getting Started
+### Setup
 
-To get started, choose a Compose environment that matches your use case:
+    npm install
 
-- [compose/ledger/README.md](compose/ledger/README.md): Deploy a ledger journal for cryptographically verifiable record-keeping.
-- [compose/ontology/README.md](compose/ontology/README.md): Deploy an ontology journal for semantic data and provenance workflows.
+### Run locally
 
-Each Compose README provides step-by-step instructions, required environment variables, and example usage. These environments are designed for rapid deployment and experimentation—just follow the linked guides for details.
+    npm start
 
----
+The application will be available at http://localhost:3000
 
-## Related Projects
+### Environment Variables
 
-- **[sync-journal](https://github.com/sandialabs/sync-journal):**  
-  The core Synchronic Web Journal SDK. Provides the main ledger, record, and evaluation engine.
+- REACT_APP_SYNC_WORKBENCH_ENDPOINT: Journal endpoint URL (default: http://localhost:4096/interface)
 
-- **[sync-records](https://github.com/sandialabs/sync-records):**  
-  A collection of reusable Scheme modules and test suites for advanced record and ledger operations.
+### Testing
 
-- **[sync-analysis](https://github.com/sandialabs/sync-analysis):**  
-  Frameworks and tools for analyzing Synchronic Web experiments and deployments.
+    npm test
 
----
+### Linting
 
-## Contributing
+    npm run lint
 
-Contributions are welcome! Please open issues or pull requests for new services, improvements to Compose environments, or documentation updates.
+## Docker
+
+### Build
+
+    docker build -t synchronic-workbench .
+
+### Run
+
+    docker run -p 80:80 -e SYNC_WORKBENCH_ENDPOINT=http://your-journal:4096/interface synchronic-workbench
+
+## Architecture
+
+The application is a single-page React app with four main panes:
+
+- **Left Pane**: API reference, functions, examples, and help documentation
+- **Top Pane**: Query editor with multiple tabs
+- **Bottom Pane**: Output viewer showing query, result, request, and response
+- **Right Pane**: Query history
+
+## Visual Design
+
+The application uses a developer-focused design with a monospace font and IDE-like appearance. It supports both light and dark themes.
+
+### Color Palette
+
+- Blue: #00add0
+- Medium Blue: #0076a9
+- Dark Blue: #002b4c
+- Supporting colors for syntax highlighting and status indicators

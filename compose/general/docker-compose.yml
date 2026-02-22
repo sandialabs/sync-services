@@ -25,6 +25,14 @@ services:
       SYNC_EXPLORER_ENDPOINT: /interface/json
       SYNC_EXPLORER_PASSWORD: ${SECRET}
 
+  workbench:
+    image: ghcr.io/sandialabs/sync-services/workbench:1.0.0
+    container_name: workbench
+    networks:
+      - docker
+    environment:
+      SYNC_WORKBENCH_ENDPOINT: /interface
+
   interface:
     image: nginx:stable-alpine
     container_name: interface

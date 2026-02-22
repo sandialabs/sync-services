@@ -1,4 +1,4 @@
-name: Explorer Service
+name: Workbench Service
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 concurrency:
-  group: "explorer"
+  group: "workbench"
   cancel-in-progress: true
 
 jobs:
@@ -26,13 +26,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Build and push versioned Docker image
         run: |
-          version=$( cat ./services/explorer/version.txt )
-          docker build ./services/explorer --tag ghcr.io/${{ github.repository }}/explorer:$version
-          docker push ghcr.io/${{ github.repository }}/explorer:$version
+          version=$( cat ./services/workbench/version.txt )
+          docker build ./services/workbench --tag ghcr.io/${{ github.repository }}/workbench:$version
+          docker push ghcr.io/${{ github.repository }}/workbench:$version
       - name: Retag and push latest Docker image
         if: github.ref == 'refs/heads/main'
         run: |
-          version=$( cat ./services/explorer/version.txt )
-          docker tag ghcr.io/${{ github.repository }}/explorer:$version \
-                     ghcr.io/${{ github.repository }}/explorer:latest 
-          docker push ghcr.io/${{ github.repository }}/explorer:latest
+          version=$( cat ./services/workbench/version.txt )
+          docker tag ghcr.io/${{ github.repository }}/workbench:$version \
+                     ghcr.io/${{ github.repository }}/workbench:latest 
+          docker push ghcr.io/${{ github.repository }}/workbench:latest
