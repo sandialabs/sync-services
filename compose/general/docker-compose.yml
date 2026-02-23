@@ -23,7 +23,6 @@ services:
       - docker
     environment:
       SYNC_EXPLORER_ENDPOINT: /interface/json
-      SYNC_EXPLORER_PASSWORD: ${SECRET}
 
   workbench:
     image: ghcr.io/sandialabs/sync-services/workbench:1.0.0
