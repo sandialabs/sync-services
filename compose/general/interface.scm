@@ -9,8 +9,10 @@
   (define (set-query function)
     (sync-call `(*set-query* ,secret-1 ,function) #t))
 
-  ;; install standard library
-  (call `(,standard '(control class standard) '(control object standard)))
+  ;; install and instantiate standard library
+  (call `(lambda (root)
+           ((root 'set!) '(control class standard) ,standard)
+           ((root 'set!) '(control object standard) (((eval (caddr ,standard)) #f ,standard)))))
 
   ;; install required classes
   (call `(lambda (root) ((root 'set!) '(control class chain) ,chain)))
@@ -42,7 +44,7 @@
                   (ledger ((standard 'make) ledger-class `(,standard ,config))))
              ((root 'set!) '(control object ledger) (ledger)))))
 
-                                        ; define secret store
+  ;; define secret store
   (call `(lambda (root)
            ((root 'set!) '(interface secret) (sync-hash (expression->byte-vector ,secret-2)))))
 
@@ -94,4 +96,5 @@
                       (result (apply (ledger (cadr func)) (if args (cadr args) '()))))
                  ((root 'set!) '(control object ledger) (ledger)) result)))))))
 
-  "Installed base interface")
+  "Installed base interface"
+  result)

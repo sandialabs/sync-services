@@ -1,0 +1,8 @@
+services:
+  journal:
+    environment:
+      LISP_DIR: /opt/local-lisp
+    volumes:
+      - ./run.sh:/srv/run.sh:ro
+      - ./interface.scm:/srv/interface.scm:ro
+      - ${LOCAL_LISP_PATH:?Set LOCAL_LISP_PATH to a directory containing control.scm, standard.scm, log-chain.scm, tree.scm, configuration.scm, ledger.scm}:/opt/local-lisp:ro
