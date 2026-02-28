@@ -10,5 +10,13 @@
   "merkle": {
     "description": "Compute the digest of four short byte vectors",
     "code": "(*eval* \"mysecret\" (sync-digest (sync-cons (sync-cons #u(0) #u(1)) (sync-cons #u(2) #u(3)))))"
+  },
+  "update standard": {
+    "description": "Update the logic of the standard class",
+    "code": "(*call* 'admin-password (lambda (root) (define standard-cls  '(define-class (standard) ...)) ((root 'set!) '(control class standard) standard-cls) ((root 'set!) '(control object standard) (((eval (caddr standard-cls)) #f standard-cls)))))))"
+  },
+  "update ledger": {
+    "description": "Update the logic of the tree class and in the ledger object",
+    "code": "(*call* 'admin-password (lambda (root) (define ledger-cls '(define-class (ledger) ...)) (let* ((standard-node ((root 'get) '(control object standard))) (standard ((eval (byte-vector->expression (sync-car standard-node))) standard-node)) (ledger-node ((root 'get) '(control object ledger)))) ((root 'set!) '(control class ledger) ledger-cls) ((root 'set!) '(control object ledger) (sync-cons (sync-car (((standard 'make) ledger-cls #f))) (sync-cdr ledger-node))))))))"
   }
 }
