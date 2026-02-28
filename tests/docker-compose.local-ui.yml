@@ -1,0 +1,8 @@
+services:
+  explorer:
+    build: ../../services/explorer
+    image: sync-services/explorer:local
+
+  workbench:
+    build: ../../services/workbench
+    image: sync-services/workbench:local

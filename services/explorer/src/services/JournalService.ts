@@ -51,10 +51,18 @@ export class JournalService {
     let items: any[] = [];
     let isComplete = true;
 
-    if (content[0] === 'directory' && Array.isArray(content[1])) {
-      // Format: ["directory", ["a", "b"], true]
-      items = content[1];
-      isComplete = content[2] !== false;
+    if (content[0] === 'directory') {
+      // Current authoritative format: ["directory", { "name": "type" }, true]
+      if (content[1] && typeof content[1] === 'object' && !Array.isArray(content[1])) {
+        items = Object.keys(content[1]);
+        isComplete = content[2] !== false;
+      } else if (Array.isArray(content[1])) {
+        // Backward compatibility for older format: ["directory", ["a", "b"], true]
+        items = content[1];
+        isComplete = content[2] !== false;
+      } else {
+        return null;
+      }
     } else if (Array.isArray(content[0])) {
       // Format: [[items...], isComplete]
       items = content[0];

@@ -48,6 +48,21 @@ Then open:
 - `http://localhost:8192/explorer/`
 - `http://localhost:8192/workbench/`
 
+## Interactive Local Run (No Automated Tests)
+
+From repository root:
+
+```bash
+# Default remote/baked Lisp behavior
+./tests/up-compose.sh
+
+# Use local Lisp files from another repo
+LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/up-compose.sh
+```
+
+The script runs `docker compose up` in the foreground. Press `Ctrl+C` to stop and exit; it will tear the stack down so nothing keeps running.
+It always builds and runs local `explorer` and `workbench` images from `services/explorer` and `services/workbench`.
+
 ## Programmatic Smoke Test
 
 From repository root:
@@ -61,6 +76,7 @@ LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/smoke-compose.sh
 ```
 
 The script starts the compose network, waits for Explorer/Workbench, checks journal API responses, and tears everything down automatically.
+It always builds and runs local `explorer` and `workbench` images from `services/explorer` and `services/workbench`.
 
 ## End
 
