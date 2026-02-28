@@ -133,7 +133,8 @@ The following is the authoritative list of Journal API functions that can be cal
   - Authenticated: yes
   - Arguments: [`<path>`, true]
   - Return `{ "content": <value with any type>, "pinned?": <canonical path>, "proof": <arbitrarily complex object with cryptographic information>}`
-    - if the path is a directory, then the `content` field will have a list of subdirectories
+    - if the path is a directory, then the `content` field will the following format `["directory", { <item name>: <item type>, <item name>: <item type> }, <true or false>]`
+      - item type can be one of `directory`, `value`, or `unknown`
     - if the path is definitely empty, the `content` field will be `["nothing"]`
     - if the path is unknown (because it has been pruned), the `content field will be `["unknown"]`
     - Otherwise, the `content` field is a normal document that can take any other valid JSON form

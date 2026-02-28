@@ -15,10 +15,68 @@ Please set the following environmental variables to configure the notary journal
 - `PORT`: port number to forward on the host machine (default:8192)
 - `PERIOD`: a nonnegative integer that determines the period of each synchronization step where period = 2 ^ PERIODICITY
 - `WINDOW`: the number previous unpinned historical states to persist
+- `LISP_DIR`: optional container path to override `control.scm`, `standard.scm`, `log-chain.scm`, `tree.scm`, `configuration.scm`, and `ledger.scm`
 
 ## Start
 
 `$ SECRET=password PORT=80 docker compose up`
+
+## Local Lisp Override
+
+Use a second compose file to bind-mount Lisp files from another repository and override the journal startup script.
+
+```bash
+cd /code
+LOCAL_LISP_PATH=/absolute/path/to/lisp \
+SECRET=password \
+PORT=8192 \
+docker compose \
+  -f compose/general/docker-compose.yml \
+  -f tests/docker-compose.local.yml \
+  up
+```
+
+`LOCAL_LISP_PATH` must contain:
+- `control.scm`
+- `standard.scm`
+- `log-chain.scm`
+- `tree.scm`
+- `configuration.scm`
+- `ledger.scm`
+
+Then open:
+- `http://localhost:8192/explorer/`
+- `http://localhost:8192/workbench/`
+
+## Interactive Local Run (No Automated Tests)
+
+From repository root:
+
+```bash
+# Default remote/baked Lisp behavior
+./tests/up-compose.sh
+
+# Use local Lisp files from another repo
+LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/up-compose.sh
+```
+
+The script runs `docker compose up` in the foreground. Press `Ctrl+C` to stop and exit; it will tear the stack down so nothing keeps running.
+It always builds and runs local `explorer` and `workbench` images from `services/explorer` and `services/workbench`.
+
+## Programmatic Smoke Test
+
+From repository root:
+
+```bash
+# Remote/baked Lisp content
+./tests/smoke-compose.sh
+
+# Local Lisp override from another repo
+LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/smoke-compose.sh
+```
+
+The script starts the compose network, waits for Explorer/Workbench, checks journal API responses, and tears everything down automatically.
+It always builds and runs local `explorer` and `workbench` images from `services/explorer` and `services/workbench`.
 
 ## End
 

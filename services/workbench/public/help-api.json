@@ -89,46 +89,46 @@
     "example": "((function step-peer!) (arguments (alice)) (authentication \"mysecret\"))",
     "permission": "user"
   },
-  "*eval*": {
-    "description": "Evaluates an arbitrary Scheme expression with full access to the journal internals. Extremely powerful and dangerous - use with caution.",
-    "template": "((*eval* <admin-secret> <expression>))",
-    "example": "((*eval* \"admin-secret\" (+ 1 2 3)))",
-    "permission": "root"
-  },
-  "*call*": {
-    "description": "Calls a function with the root object as an argument. The function receives direct access to the root data structure.",
-    "template": "((*call* <admin-secret> <function>))",
-    "example": "((*call* \"admin-secret\" (lambda (root) ((root 'get) '(control object ledger)))))",
-    "permission": "root"
-  },
-  "*step*": {
-    "description": "Executes a full step cycle, running all registered step handlers in order. This is typically called automatically by the journal daemon.",
-    "template": "((*step* <admin-secret>))",
-    "example": "((*step* \"admin-secret\"))",
-    "permission": "root"
-  },
-  "*set-secret*": {
-    "description": "Changes the admin secret used for root-level operations. Requires the current admin secret for authentication.",
-    "template": "((*set-secret* <current-secret> <new-secret>))",
-    "example": "((*set-secret* \"old-secret\" \"new-secret\"))",
-    "permission": "root"
-  },
-  "*set-step*": {
-    "description": "Sets the step handler function that is called during *step* operations. The function receives the root object and admin secret.",
-    "template": "((*set-step* <admin-secret> <step-function>))",
-    "example": "((*set-step* \"admin-secret\" (lambda (root secret) ...))",
-    "permission": "root"
-  },
-  "*set-query*": {
-    "description": "Sets the query handler function that processes all incoming queries. The function receives the root object and query data.",
-    "template": "((*set-query* <admin-secret> <query-function>))",
-    "example": "((*set-query* \"admin-secret\" (lambda (root query) ...))",
-    "permission": "root"
-  },
   "*secret*": {
     "description": "Changes the user authentication secret. Requires the current user secret for authentication.",
     "template": "((function *secret*) (arguments (<old-secret> <new-secret>)) (authentication <old-secret>))",
     "example": "((function *secret*) (arguments (\"old-user-secret\" \"new-user-secret\")) (authentication \"old-user-secret\"))",
     "permission": "user"
+  },
+  "*eval*": {
+    "description": "Evaluates an arbitrary Scheme expression with full access to the journal internals. Extremely powerful and dangerous - use with caution.",
+    "template": "(*eval* <admin-secret> <expression>)",
+    "example": "(*eval* \"admin-secret\" (+ 1 2 3))",
+    "permission": "root"
+  },
+  "*call*": {
+    "description": "Calls a function with the root object as an argument. The function receives direct access to the root data structure.",
+    "template": "(*call* <admin-secret> <function>)",
+    "example": "(*call* \"admin-secret\" (lambda (root) ((root 'get) '(control object ledger))))",
+    "permission": "root"
+  },
+  "*step*": {
+    "description": "Executes a full step cycle, running all registered step handlers in order. This is typically called automatically by the journal daemon.",
+    "template": "(*step* <admin-secret>)",
+    "example": "(*step* \"admin-secret\")",
+    "permission": "root"
+  },
+  "*set-secret*": {
+    "description": "Changes the admin secret used for root-level operations. Requires the current admin secret for authentication.",
+    "template": "(*set-secret* <current-secret> <new-secret>)",
+    "example": "(*set-secret* \"old-secret\" \"new-secret\")",
+    "permission": "root"
+  },
+  "*set-step*": {
+    "description": "Sets the step handler function that is called during *step* operations. The function receives the root object and admin secret.",
+    "template": "(*set-step* <admin-secret> <step-function>)",
+    "example": "(*set-step* \"admin-secret\" (lambda (root secret) ...)",
+    "permission": "root"
+  },
+  "*set-query*": {
+    "description": "Sets the query handler function that processes all incoming queries. The function receives the root object and query data.",
+    "template": "(*set-query* <admin-secret> <query-function>)",
+    "example": "(*set-query* \"admin-secret\" (lambda (root query) ...)",
+    "permission": "root"
   }
 }

@@ -1,0 +1,36 @@
+name: Compose Smoke Test
+
+on:
+  pull_request:
+    branches: [ "**" ]
+  push:
+    branches: [ "**" ]
+
+concurrency:
+  group: "compose-smoke-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Lisp fixture directory
+        run: |
+          set -eu
+          repository=$(sed -n 's/^ARG REPOSITORY=//p' ./compose/general/Dockerfile)
+          mkdir -p /tmp/local-lisp
+          for file in control.scm standard.scm log-chain.scm tree.scm configuration.scm ledger.scm; do
+            wget -q -O "/tmp/local-lisp/$file" "${repository}${file}"
+          done
+
+      - name: Run compose smoke test with local Lisp override
+        env:
+          LOCAL_LISP_PATH: /tmp/local-lisp
+          SECRET: ci-smoke-secret
+          PORT: "8192"
+        run: ./tests/smoke-compose.sh

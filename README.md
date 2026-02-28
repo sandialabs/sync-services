@@ -1,66 +1,44 @@
-# Synchronic Web Workbench
+# Synchronic Web Services
 
-A developer interface for querying synchronic web journals.
+Monorepo for the Synchronic journal compose stack plus two web UIs:
 
-## Overview
+- `explorer` for browsing/editing journal content
+- `workbench` for developer-oriented journal queries
 
-The Synchronic Web Workbench provides a structured interface to interact programmatically with synchronic web journals. It allows developers to write queries, view outputs, and explore the journal API.
+## Quick Start
 
-## Development
+Run the compose stack (journal + nginx interface + local explorer/workbench builds):
 
-### Prerequisites
+```bash
+SECRET=password PORT=8192 ./tests/up-compose.sh
+```
 
-- Node.js 18+
-- npm
+Run with local Lisp sources for the journal bootstrap:
 
-### Setup
+```bash
+LOCAL_LISP_PATH=/absolute/path/to/lisp SECRET=password PORT=8192 ./tests/up-compose.sh
+```
 
-    npm install
+Run automated smoke validation (up, verify, down):
 
-### Run locally
+```bash
+./tests/smoke-compose.sh
+```
 
-    npm start
+Smoke validation with local Lisp override:
 
-The application will be available at http://localhost:3000
+```bash
+LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/smoke-compose.sh
+```
 
-### Environment Variables
+Bring down the base compose stack manually:
 
-- REACT_APP_SYNC_WORKBENCH_ENDPOINT: Journal endpoint URL (default: http://localhost:4096/interface)
+```bash
+docker compose -f compose/general/docker-compose.yml down -v
+```
 
-### Testing
+## Documentation Map
 
-    npm test
-
-### Linting
-
-    npm run lint
-
-## Docker
-
-### Build
-
-    docker build -t synchronic-workbench .
-
-### Run
-
-    docker run -p 80:80 -e SYNC_WORKBENCH_ENDPOINT=http://your-journal:4096/interface synchronic-workbench
-
-## Architecture
-
-The application is a single-page React app with four main panes:
-
-- **Left Pane**: API reference, functions, examples, and help documentation
-- **Top Pane**: Query editor with multiple tabs
-- **Bottom Pane**: Output viewer showing query, result, request, and response
-- **Right Pane**: Query history
-
-## Visual Design
-
-The application uses a developer-focused design with a monospace font and IDE-like appearance. It supports both light and dark themes.
-
-### Color Palette
-
-- Blue: #00add0
-- Medium Blue: #0076a9
-- Dark Blue: #002b4c
-- Supporting colors for syntax highlighting and status indicators
+- Compose deployment/testing docs: [compose/general/README.md](/code/compose/general/README.md)
+- Explorer service docs: [services/explorer/README.md](/code/services/explorer/README.md)
+- Workbench service docs: [services/workbench/README.md](/code/services/workbench/README.md)

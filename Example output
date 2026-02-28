@@ -1,6 +1,0 @@
-{
-  "*stdin*": "*stdin* is the built-in input port, C's stdin",
-  "*stdout*": "*stdout* is the built-in buffered output port, C's stdout",
-  "syntax?": "(syntax? obj) returns #t if obj is a syntactic value (e.g. lambda)",
-  ...
-}

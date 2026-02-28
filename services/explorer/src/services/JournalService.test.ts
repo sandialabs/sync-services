@@ -35,8 +35,8 @@ describe('JournalService', () => {
   });
 
   describe('parseDirectoryResponse', () => {
-    it('should parse complete directory response', () => {
-      const input = ['directory', ['file1', 'file2', 'file3'], true];
+    it('should parse complete directory response in object-map format', () => {
+      const input = ['directory', { file1: 'value', file2: 'directory', file3: 'unknown' }, true];
       const result = JournalService.parseDirectoryResponse(input);
       expect(result).toEqual({
         items: ['file1', 'file2', 'file3'],
@@ -44,8 +44,8 @@ describe('JournalService', () => {
       });
     });
 
-    it('should parse incomplete directory response', () => {
-      const input = ['directory', ['file1', 'file2'], false];
+    it('should parse incomplete directory response in object-map format', () => {
+      const input = ['directory', { file1: 'value', file2: 'directory' }, false];
       const result = JournalService.parseDirectoryResponse(input);
       expect(result).toEqual({
         items: ['file1', 'file2'],
@@ -53,11 +53,20 @@ describe('JournalService', () => {
       });
     });
 
-    it('should parse directory response without completeness flag', () => {
-      const input = ['directory', ['file1']];
+    it('should parse directory response without completeness flag in object-map format', () => {
+      const input = ['directory', { file1: 'value' }];
       const result = JournalService.parseDirectoryResponse(input);
       expect(result).toEqual({
         items: ['file1'],
+        isComplete: true,
+      });
+    });
+
+    it('should parse legacy directory response in array format for backward compatibility', () => {
+      const input = ['directory', ['file1', 'file2'], true];
+      const result = JournalService.parseDirectoryResponse(input);
+      expect(result).toEqual({
+        items: ['file1', 'file2'],
         isComplete: true,
       });
     });
@@ -71,7 +80,7 @@ describe('JournalService', () => {
 
     it('should return null for malformed directory response', () => {
       expect(JournalService.parseDirectoryResponse(['directory'])).toBeNull();
-      expect(JournalService.parseDirectoryResponse(['directory', 'not-an-array'])).toBeNull();
+      expect(JournalService.parseDirectoryResponse(['directory', 'not-an-object'])).toBeNull();
     });
   });
 });
