@@ -4,7 +4,7 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/general:1.0.0
+    image: ghcr.io/sandialabs/sync-services/general:1.0.1
     container_name: journal
     networks:
       - docker
@@ -32,6 +32,21 @@ services:
     environment:
       SYNC_WORKBENCH_ENDPOINT: /interface
 
+  gateway:
+    build: ../../services/gateway
+    image: sync-services/gateway:local
+    container_name: gateway
+    networks:
+      - docker
+    depends_on:
+      - journal
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8180
+      JOURNAL_JSON_ENDPOINT: http://journal/interface/json
+      JOURNAL_LISP_ENDPOINT: http://journal/interface
+      ALLOW_ADMIN_ROUTES: "1"
+
   interface:
     image: nginx:stable-alpine
     container_name: interface
@@ -41,6 +56,7 @@ services:
       - journal
       - explorer
       - workbench
+      - gateway
     networks:
       - docker
     ports:

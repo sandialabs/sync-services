@@ -10,6 +10,7 @@ SECRET="${SECRET:-password}"
 PERIOD="${PERIOD:-2}"
 WINDOW="${WINDOW:-1024}"
 LOCAL_LISP_PATH="${LOCAL_LISP_PATH:-}"
+WIPE_VOLUMES="${WIPE_VOLUMES:-0}"
 
 COMPOSE_ARGS="-f $COMPOSE_DIR/docker-compose.yml"
 if [ -n "$LOCAL_LISP_PATH" ]; then
@@ -24,7 +25,11 @@ dc() {
 
 cleanup() {
     set +e
-    dc down --remove-orphans >/dev/null 2>&1
+    if [ "$WIPE_VOLUMES" = "1" ]; then
+        dc down -v --remove-orphans >/dev/null 2>&1
+    else
+        dc down --remove-orphans >/dev/null 2>&1
+    fi
 }
 
 on_interrupt() {
@@ -35,7 +40,11 @@ on_interrupt() {
 trap cleanup EXIT
 trap on_interrupt INT TERM
 
-export SECRET PERIOD WINDOW PORT LOCAL_LISP_PATH
+export SECRET PERIOD WINDOW PORT LOCAL_LISP_PATH WIPE_VOLUMES
 
-echo "Starting compose stack on port $PORT (Ctrl+C to stop)..."
+if [ "$WIPE_VOLUMES" = "1" ]; then
+    echo "Starting compose stack on port $PORT (Ctrl+C to stop, volumes will be removed)..."
+else
+    echo "Starting compose stack on port $PORT (Ctrl+C to stop, volumes preserved)..."
+fi
 dc up --build

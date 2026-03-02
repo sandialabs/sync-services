@@ -1,6 +1,6 @@
 # Synchronic Web Ledger Compose Network
 
-This repository contains materials to deploy a single ledger journal using Docker Compose
+This repository contains materials to deploy a single ledger journal with web tooling and gateway services using Docker Compose.
 
 ## Requirements
 
@@ -16,6 +16,9 @@ Please set the following environmental variables to configure the notary journal
 - `PERIOD`: a nonnegative integer that determines the period of each synchronization step where period = 2 ^ PERIODICITY
 - `WINDOW`: the number previous unpinned historical states to persist
 - `LISP_DIR`: optional container path to override `control.scm`, `standard.scm`, `log-chain.scm`, `tree.scm`, `configuration.scm`, and `ledger.scm`
+
+Gateway note:
+- `ALLOW_ADMIN_ROUTES` is enabled by default for the gateway service in `compose/general/docker-compose.yml`.
 
 ## Start
 
@@ -47,6 +50,8 @@ docker compose \
 Then open:
 - `http://localhost:8192/explorer/`
 - `http://localhost:8192/workbench/`
+- `http://localhost:8192/gateway/`
+- `http://localhost:8192/api/v1/docs`
 
 ## Interactive Local Run (No Automated Tests)
 
@@ -61,7 +66,7 @@ LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/up-compose.sh
 ```
 
 The script runs `docker compose up` in the foreground. Press `Ctrl+C` to stop and exit; it will tear the stack down so nothing keeps running.
-It always builds and runs local `explorer` and `workbench` images from `services/explorer` and `services/workbench`.
+`gateway` is built locally from `services/gateway`. `explorer` and `workbench` use compose defaults unless `LOCAL_LISP_PATH` is set (which enables local UI overrides).
 
 ## Programmatic Smoke Test
 
@@ -75,8 +80,8 @@ From repository root:
 LOCAL_LISP_PATH=/absolute/path/to/lisp ./tests/smoke-compose.sh
 ```
 
-The script starts the compose network, waits for Explorer/Workbench, checks journal API responses, and tears everything down automatically.
-It always builds and runs local `explorer` and `workbench` images from `services/explorer` and `services/workbench`.
+The script starts the compose network, waits for Explorer/Workbench/Gateway docs, checks journal and gateway API responses, and tears everything down automatically.
+`gateway` is built locally from `services/gateway`. `explorer` and `workbench` use compose defaults unless `LOCAL_LISP_PATH` is set (which enables local UI overrides).
 
 ## End
 

@@ -64,6 +64,20 @@ api_post() {
       "http://127.0.0.1:$PORT/interface/json"
 }
 
+gateway_status() {
+    method="$1"
+    path="$2"
+    shift 2
+    curl -sS -o /dev/null -w "%{http_code}" -X "$method" "$@" \
+      "http://127.0.0.1:$PORT$path"
+}
+
+gateway_get() {
+    path="$1"
+    shift
+    curl -fsS "$@" "http://127.0.0.1:$PORT$path"
+}
+
 echo "Starting compose stack on port $PORT..."
 export SECRET PERIOD WINDOW PORT LOCAL_LISP_PATH
 dc up -d --build
@@ -71,6 +85,7 @@ dc up -d --build
 echo "Waiting for routes..."
 wait_for_http "http://127.0.0.1:$PORT/explorer/"
 wait_for_http "http://127.0.0.1:$PORT/workbench/"
+wait_for_http "http://127.0.0.1:$PORT/api/v1/docs"
 
 echo "Running API smoke checks..."
 size_response="$(api_post '{"function":"size"}' | tr -d '[:space:]')"
@@ -84,6 +99,26 @@ esac
 config_response="$(api_post "{\"function\":\"configuration\",\"authentication\":\"$SECRET\"}")"
 if [ -z "$config_response" ]; then
     echo "FAIL: configuration response is empty"
+    exit 1
+fi
+
+gateway_size="$(gateway_get "/api/v1/general/size" | tr -d '[:space:]')"
+case "$gateway_size" in
+    ''|*[!0-9]*)
+        echo "FAIL: gateway size response is not a number: $gateway_size"
+        exit 1
+        ;;
+esac
+
+control_unauthorized_status="$(gateway_status POST "/api/v1/control/step" -H "Content-Type: application/json" -d '[]')"
+if [ "$control_unauthorized_status" != "401" ]; then
+    echo "FAIL: expected gateway control route to require auth (401), got $control_unauthorized_status"
+    exit 1
+fi
+
+control_authorized_status="$(gateway_status POST "/api/v1/control/step" -H "Authorization: Bearer $SECRET" -H "Content-Type: application/json" -d '[]')"
+if [ "$control_authorized_status" != "200" ]; then
+    echo "FAIL: expected authenticated gateway control route to succeed (200), got $control_authorized_status"
     exit 1
 fi
 

@@ -4,10 +4,11 @@ Monorepo for the Synchronic journal compose stack plus two web UIs:
 
 - `explorer` for browsing/editing journal content
 - `workbench` for developer-oriented journal queries
+- `gateway` for versioned web-native API routes and Swagger docs over journal interfaces
 
 ## Quick Start
 
-Run the compose stack (journal + nginx interface + local explorer/workbench builds):
+Run the compose stack (journal + nginx interface + gateway + explorer + workbench):
 
 ```bash
 SECRET=password PORT=8192 ./tests/up-compose.sh
@@ -39,6 +40,14 @@ docker compose -f compose/general/docker-compose.yml down -v
 
 ## Documentation Map
 
-- Compose deployment/testing docs: [compose/general/README.md](/code/compose/general/README.md)
-- Explorer service docs: [services/explorer/README.md](/code/services/explorer/README.md)
-- Workbench service docs: [services/workbench/README.md](/code/services/workbench/README.md)
+- Compose deployment/testing docs: [compose/general/README.md](compose/general/README.md)
+- Explorer service docs: [services/explorer/README.md](services/explorer/README.md)
+- Workbench service docs: [services/workbench/README.md](services/workbench/README.md)
+- Gateway service docs: [services/gateway/README.md](services/gateway/README.md)
+
+## Issues
+
+- [ ] Prettify feature incorrectly removes whitespace before single quote
+- [ ] Need to ensure that smoke-test/up-compose works locally
+- [ ] Put better control over the functions exposed by interface (e.g., ignore step)
+- [ ] Point explorer to swagger interface rather than journal directly
