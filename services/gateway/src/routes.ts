@@ -7,7 +7,12 @@ export interface GatewayRoutesOptions {
   allowAdminRoutes: boolean;
 }
 
-const restrictedSecurity = [{ bearerAuth: [] }, { syncHeader: [] }];
+type OpenApiSecurityRequirement = { [securityLabel: string]: readonly string[] };
+
+const restrictedSecurity: readonly OpenApiSecurityRequirement[] = [
+  { bearerAuth: [] },
+  { syncHeader: [] },
+];
 
 const getContentType = (request: FastifyRequest): string =>
   String(request.headers["content-type"] || "")
@@ -483,21 +488,28 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   }
 
   app.setErrorHandler((error, request, reply) => {
+    const asRecord =
+      typeof error === "object" && error !== null
+        ? (error as Record<string, unknown>)
+        : {};
+    const errorMessage =
+      error instanceof Error ? error.message : String(asRecord.message || error);
+
     // Fastify validation errors should be surfaced as 400, not generic gateway failures.
-    if ("validation" in error && error.validation) {
+    if ("validation" in asRecord && asRecord.validation) {
       return reply.code(400).send({
         error: "invalid_request",
-        message: error.message,
+        message: errorMessage,
       });
     }
     // Unsupported media types can be raised by Fastify before handler logic runs.
-    if ("code" in error && error.code === "FST_ERR_CTP_INVALID_MEDIA_TYPE") {
+    if (asRecord.code === "FST_ERR_CTP_INVALID_MEDIA_TYPE") {
       return reply.code(415).send({
         error: "unsupported_media_type",
-        message: error.message,
+        message: errorMessage,
       });
     }
-    if (error.message.includes("Missing authentication header")) {
+    if (errorMessage.includes("Missing authentication header")) {
       return reply.code(401).send({
         error: "unauthorized",
         message: "Provide Authorization: Bearer <secret> or X-Sync-Auth header",
@@ -507,22 +519,25 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
         },
       });
     }
-    if (error.message.includes("Unsupported content-type")) {
+    if (errorMessage.includes("Unsupported content-type")) {
       return reply.code(415).send({
         error: "unsupported_media_type",
-        message: error.message,
+        message: errorMessage,
       });
     }
     if (
-      error.message.includes("JSON body must use") ||
-      error.message.includes("Lisp requests must provide")
+      errorMessage.includes("JSON body must use") ||
+      errorMessage.includes("Lisp requests must provide")
     ) {
       return reply.code(400).send({
         error: "invalid_request",
-        message: error.message,
+        message: errorMessage,
       });
     }
     request.log.error({ err: error }, "Unhandled gateway error");
-    return reply.code(502).send({ error: "gateway_error", message: error.message });
+    return reply.code(502).send({
+      error: "gateway_error",
+      message: errorMessage,
+    });
   });
 };
