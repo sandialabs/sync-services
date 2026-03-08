@@ -27,7 +27,7 @@ const PeerInfoTab: React.FC<PeerInfoTabProps> = ({
     if (!journalService) return;
 
     try {
-      const peerList = await journalService.getPeers([appState.rootIndex]);
+      const peerList = await journalService.getPeers();
       setPeers(peerList);
     } catch (error) {
       console.error('Failed to load peers:', error);

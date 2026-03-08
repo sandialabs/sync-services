@@ -16,7 +16,7 @@ Start here:
 - For restricted routes, provide either Authorization bearer token or X-Sync-Auth header.
 
 Request bodies:
-- JSON mode uses application/json with either a top-level array or an object containing an arguments array.
+- JSON mode uses application/json with keyword arguments as an object (optionally wrapped as { arguments: { ... } }).
 - Lisp mode uses text/plain or application/lisp with a raw Lisp arguments expression.
 
 Operational notes:

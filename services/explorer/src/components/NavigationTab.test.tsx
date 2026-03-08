@@ -8,6 +8,7 @@ import { AppState } from '../types';
 jest.mock('../services/JournalService', () => ({
   JournalService: {
     parseDirectoryResponse: jest.fn(),
+    parseDirectoryEntries: jest.fn(),
     extractSchemeValue: jest.fn((value) => ({ value, schemeType: null })),
   },
 }));
@@ -58,10 +59,10 @@ describe('NavigationTab', () => {
     (mockJournalService.get as jest.Mock).mockResolvedValue({
       content: ['directory', ['file1', 'file2'], true],
     });
-    (JournalService.parseDirectoryResponse as jest.Mock).mockReturnValue({
-      items: ['file1', 'file2'],
-      isComplete: true,
-    });
+    (JournalService.parseDirectoryEntries as jest.Mock).mockReturnValue([
+      { name: 'file1', type: 'directory' },
+      { name: 'file2', type: 'directory' },
+    ]);
 
     render(
       <NavigationTab
@@ -115,10 +116,9 @@ describe('NavigationTab', () => {
     (mockJournalService.get as jest.Mock).mockResolvedValue({
       content: ['directory', ['file1'], true],
     });
-    (JournalService.parseDirectoryResponse as jest.Mock).mockReturnValue({
-      items: ['file1'],
-      isComplete: true,
-    });
+    (JournalService.parseDirectoryEntries as jest.Mock).mockReturnValue([
+      { name: 'file1', type: 'directory' },
+    ]);
 
     render(
       <NavigationTab
@@ -142,10 +142,11 @@ describe('NavigationTab', () => {
     (mockJournalService.get as jest.Mock).mockResolvedValue({
       content: ['directory', ['file1', '*directory*', 'file2'], true],
     });
-    (JournalService.parseDirectoryResponse as jest.Mock).mockReturnValue({
-      items: ['file1', '*directory*', 'file2'],
-      isComplete: true,
-    });
+    (JournalService.parseDirectoryEntries as jest.Mock).mockReturnValue([
+      { name: 'file1', type: 'directory' },
+      { name: '*directory*', type: 'value' },
+      { name: 'file2', type: 'value' },
+    ]);
 
     const onExpandedNodesChange = jest.fn();
 
@@ -174,8 +175,8 @@ describe('NavigationTab', () => {
     // Verify that get was called to fetch children
     expect(mockJournalService.get).toHaveBeenCalled();
 
-    // Verify parseDirectoryResponse was called
-    expect(JournalService.parseDirectoryResponse).toHaveBeenCalled();
+    // Verify parseDirectoryEntries was called
+    expect(JournalService.parseDirectoryEntries).toHaveBeenCalled();
   });
 
   it('should sort children alphabetically when expanding', async () => {
@@ -184,10 +185,11 @@ describe('NavigationTab', () => {
     (mockJournalService.get as jest.Mock).mockResolvedValue({
       content: ['directory', ['zebra', 'apple', 'mango'], true],
     });
-    (JournalService.parseDirectoryResponse as jest.Mock).mockReturnValue({
-      items: ['zebra', 'apple', 'mango'],
-      isComplete: true,
-    });
+    (JournalService.parseDirectoryEntries as jest.Mock).mockReturnValue([
+      { name: 'zebra', type: 'directory' },
+      { name: 'apple', type: 'directory' },
+      { name: 'mango', type: 'directory' },
+    ]);
 
     const onExpandedNodesChange = jest.fn();
 
@@ -216,7 +218,7 @@ describe('NavigationTab', () => {
     // Verify that get was called to fetch children
     expect(mockJournalService.get).toHaveBeenCalled();
 
-    // Verify parseDirectoryResponse was called with the response
-    expect(JournalService.parseDirectoryResponse).toHaveBeenCalled();
+    // Verify parseDirectoryEntries was called with the response
+    expect(JournalService.parseDirectoryEntries).toHaveBeenCalled();
   });
 });

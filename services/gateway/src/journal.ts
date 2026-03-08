@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 
 export interface JournalCall {
   functionName: string;
-  args?: unknown[];
+  args?: unknown;
   authentication?: string;
 }
 
@@ -16,10 +16,60 @@ export interface JournalClientOptions {
   debugForwardingIncludeAuth?: boolean;
 }
 
+export class JournalSemanticError extends Error {
+  readonly statusCode: number;
+  readonly code: string;
+  readonly details: unknown;
+
+  constructor(input: {
+    code: string;
+    message: string;
+    details?: unknown;
+    statusCode?: number;
+  }) {
+    super(input.message);
+    this.name = "JournalSemanticError";
+    this.code = input.code;
+    this.details = input.details;
+    this.statusCode = input.statusCode ?? 400;
+  }
+}
+
 const asErrorMessage = (value: unknown): string => {
   if (value instanceof Error) return value.message;
   if (typeof value === "string") return value;
   return "Unknown error";
+};
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+const parseQuotedSymbol = (value: unknown): string | null => {
+  const record = asRecord(value);
+  if (!record) return null;
+  const quoted = record["*type/quoted*"] ?? record["*type/quoted"];
+  return typeof quoted === "string" ? quoted : null;
+};
+
+const parseSchemeString = (value: unknown): string | null => {
+  const record = asRecord(value);
+  if (!record) return null;
+  const wrapped = record["*type/string*"];
+  return typeof wrapped === "string" ? wrapped : null;
+};
+
+const toSemanticError = (value: unknown): JournalSemanticError | null => {
+  if (!Array.isArray(value) || value.length < 3 || value[0] !== "error") return null;
+  const code = parseQuotedSymbol(value[1]) || "journal_error";
+  const message = parseSchemeString(value[2]) || "Journal returned an error";
+  return new JournalSemanticError({
+    code,
+    message,
+    details: value,
+    statusCode: 400,
+  });
 };
 
 const cloneBody = (body: Record<string, unknown>): Record<string, unknown> =>
@@ -64,7 +114,7 @@ export const createJournalClient = (
       function: input.functionName,
     };
 
-    if (input.args && input.args.length > 0) {
+    if (input.args !== undefined) {
       requestBody.arguments = input.args;
     }
 
@@ -107,6 +157,19 @@ export const createJournalClient = (
         // Keep raw text as-is if upstream did not return JSON.
       }
 
+      const semanticError = toSemanticError(parsed);
+      if (semanticError) {
+        logger.warn(
+          {
+            statusCode: response.status,
+            code: semanticError.code,
+            message: semanticError.message,
+          },
+          "Journal returned semantic error payload"
+        );
+        throw semanticError;
+      }
+
       if (options.debugForwarding) {
         logger.info(
           {
@@ -133,6 +196,9 @@ export const createJournalClient = (
 
       return parsed;
     } catch (error) {
+      if (error instanceof JournalSemanticError) {
+        throw error;
+      }
       const message = asErrorMessage(error);
       logger.error({ err: message }, "Journal call failed");
       throw new Error(`Failed to call journal: ${message}`);
@@ -168,6 +234,19 @@ export const createJournalClient = (
       const text = await response.text();
       const parsed = parseResponse(text);
 
+      const semanticError = toSemanticError(parsed);
+      if (semanticError) {
+        logger.warn(
+          {
+            statusCode: response.status,
+            code: semanticError.code,
+            message: semanticError.message,
+          },
+          "Journal returned semantic error payload"
+        );
+        throw semanticError;
+      }
+
       if (options.debugForwarding) {
         logger.info(
           {
@@ -195,6 +274,9 @@ export const createJournalClient = (
 
       return parsed;
     } catch (error) {
+      if (error instanceof JournalSemanticError) {
+        throw error;
+      }
       const message = asErrorMessage(error);
       logger.error({ err: message }, "Journal call failed");
       throw new Error(`Failed to call journal: ${message}`);

@@ -7,14 +7,14 @@
   },
   "synchronize": {
     "description": "Returns a serialized proof of the chain state up to the specified index. Used for peer synchronization to verify chain integrity and fetch missing data.",
-    "template": "((function synchronize) (arguments (<index>)))",
-    "example": "((function synchronize) (arguments (0)))",
+    "template": "((function synchronize) (arguments ((index <index>))))",
+    "example": "((function synchronize) (arguments ((index 0))))",
     "permission": "any"
   },
   "resolve": {
     "description": "Returns a serialized proof for data at a specific path and index. Used by peers to fetch and verify specific data from the chain.",
-    "template": "((function resolve) (arguments (<index> <path>)))",
-    "example": "((function resolve) (arguments (0 ((*state* key)))))",
+    "template": "((function resolve) (arguments ((index <index>) (path <path>))))",
+    "example": "((function resolve) (arguments ((index 0) (path ((*state* key))))))",
     "permission": "any"
   },
   "information": {
@@ -25,32 +25,32 @@
   },
   "get": {
     "description": "Retrieves data at the specified path. If the first element is an integer, it fetches from that chain index (negative indices count from the end). Otherwise fetches from the current staging area. When details? is true, returns content, pinned status, and proof.",
-    "template": "((function get) (arguments (<path> <details?>)) (authentication <secret>))",
-    "example": "((function get) (arguments (((*state* mykey)) #t)) (authentication \"mysecret\"))",
+    "template": "((function get) (arguments ((path <path>) (details? <details?>))) (authentication <secret>))",
+    "example": "((function get) (arguments ((path ((*state* mykey))) (details? #t))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "set!": {
     "description": "Sets a value at the specified path in the staging area. The path must start with a list beginning with '*state*'. Changes are staged until the next step-chain! commits them.",
-    "template": "((function set!) (arguments (<path> <value>)) (authentication <secret>))",
-    "example": "((function set!) (arguments (((*state* mykey)) \"myvalue\")) (authentication \"mysecret\"))",
+    "template": "((function set!) (arguments ((path <path>) (value <value>))) (authentication <secret>))",
+    "example": "((function set!) (arguments ((path ((*state* mykey))) (value \"myvalue\"))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "pin!": {
     "description": "Pins data at the specified path to prevent it from being pruned. The path must include a chain index as the first element. Pinned data is preserved in the permanent chain.",
-    "template": "((function pin!) (arguments (<path>)) (authentication <secret>))",
-    "example": "((function pin!) (arguments ((-1 (*state* important-data)))) (authentication \"mysecret\"))",
+    "template": "((function pin!) (arguments ((path <path>))) (authentication <secret>))",
+    "example": "((function pin!) (arguments ((path (-1 (*state* important-data))))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "unpin!": {
     "description": "Unpins data at the specified path, allowing it to be pruned. The path must include a chain index as the first element.",
-    "template": "((function unpin!) (arguments (<path>)) (authentication <secret>))",
-    "example": "((function unpin!) (arguments ((-1 (*state* old-data)))) (authentication \"mysecret\"))",
+    "template": "((function unpin!) (arguments ((path <path>))) (authentication <secret>))",
+    "example": "((function unpin!) (arguments ((path (-1 (*state* old-data))))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "general-peer!": {
     "description": "Adds a new peer with the given name and endpoint URL. This creates remote procedure bindings for information, synchronize, and resolve operations with the peer.",
-    "template": "((function general-peer!) (arguments ({\"*type/string*\": \"<name>\"} {\"*type/string*\": \"<endpoint>\"})) (authentication <secret>))",
-    "example": "((function general-peer!) (arguments ({\"*type/string*\": \"alice\"} {\"*type/string*\": \"http://alice.example.com/interface\"})) (authentication \"mysecret\"))",
+    "template": "((function general-peer!) (arguments ((name <name>) (interface <endpoint>))) (authentication <secret>))",
+    "example": "((function general-peer!) (arguments ((name alice) (interface \"http://alice.example.com/interface\"))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "configuration": {
@@ -61,8 +61,8 @@
   },
   "peer!": {
     "description": "Low-level function to add a peer with custom remote procedure bindings. Requires providing information, synchronize, and resolve lambda functions.",
-    "template": "((function peer!) (arguments (<name> <info>)) (authentication <secret>))",
-    "example": "((function peer!) (arguments (alice ((information (lambda () ...)) (synchronize (lambda (index) ...)) (resolve (lambda (source target) ...))))) (authentication \"mysecret\"))",
+    "template": "((function peer!) (arguments ((name <name>) (info <info>))) (authentication <secret>))",
+    "example": "((function peer!) (arguments ((name alice) (info ((information (lambda () ...)) (synchronize (lambda (index) ...)) (resolve (lambda (source target) ...)))))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "peers": {
@@ -85,14 +85,14 @@
   },
   "step-peer!": {
     "description": "Synchronizes with a specific peer by fetching their latest chain state and verifying signatures. Updates the staging area with the peer's chain data.",
-    "template": "((function step-peer!) (arguments (<peer-name>)) (authentication <secret>))",
-    "example": "((function step-peer!) (arguments (alice)) (authentication \"mysecret\"))",
+    "template": "((function step-peer!) (arguments ((name <peer-name>))) (authentication <secret>))",
+    "example": "((function step-peer!) (arguments ((name alice))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "*secret*": {
     "description": "Changes the user authentication secret. Requires the current user secret for authentication.",
-    "template": "((function *secret*) (arguments (<old-secret> <new-secret>)) (authentication <old-secret>))",
-    "example": "((function *secret*) (arguments (\"old-user-secret\" \"new-user-secret\")) (authentication \"old-user-secret\"))",
+    "template": "((function *secret*) (arguments ((secret <new-secret>))) (authentication <old-secret>))",
+    "example": "((function *secret*) (arguments ((secret \"new-user-secret\"))) (authentication \"old-user-secret\"))",
     "permission": "user"
   },
   "*eval*": {

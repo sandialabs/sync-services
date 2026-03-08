@@ -1,25 +1,56 @@
 /**
- * Service for interacting with the Synchronic Web Journal API
+ * Service for interacting with the Synchronic Web Gateway API
  */
 
 import { 
-  JournalRequest, 
   JournalResponse, 
   JournalPath, 
   PeerInfo,
   SchemeString,
-  DirectoryResult
+  DirectoryResult,
+  DirectoryEntry,
+  DirectoryEntryType
 } from '../types';
 
-// Functions that don't require authentication
-const PUBLIC_FUNCTIONS = ['size', 'synchronize', 'resolve', 'information'];
+interface GatewayErrorPayload {
+  error?: string;
+  message?: string;
+  details?: unknown;
+  hints?: unknown;
+  source?: string;
+}
+
+class GatewayRequestError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly details?: unknown;
+  readonly hints?: unknown;
+  readonly source?: string;
+
+  constructor(input: {
+    status: number;
+    code: string;
+    message: string;
+    details?: unknown;
+    hints?: unknown;
+    source?: string;
+  }) {
+    super(input.message);
+    this.name = 'GatewayRequestError';
+    this.status = input.status;
+    this.code = input.code;
+    this.details = input.details;
+    this.hints = input.hints;
+    this.source = input.source;
+  }
+}
 
 export class JournalService {
-  private endpoint: string;
+  private endpointBase: string;
   private authentication: string;
 
   constructor(endpoint: string, authentication: string) {
-    this.endpoint = endpoint;
+    this.endpointBase = endpoint.replace(/\/+$/, '');
     this.authentication = authentication;
   }
 
@@ -81,55 +112,145 @@ export class JournalService {
   }
 
   /**
-   * Make a JSON POST request to the journal
+   * Parse directory entries with explicit child-type metadata.
+   * Returns null when content is not a directory payload.
    */
-  private async request<T = any>(func: string, args?: any[]): Promise<T> {
-    const body: JournalRequest = { function: func };
-
-    if (args && args.length > 0) {
-      body.arguments = args;
+  static parseDirectoryEntries(content: any): DirectoryEntry[] | null {
+    if (!Array.isArray(content) || content.length < 2) {
+      return null;
     }
 
-    if (this.authentication && !PUBLIC_FUNCTIONS.includes(func)) {
-      body.authentication = this.authentication;
+    const normalizeType = (value: unknown): DirectoryEntryType => {
+      if (value === 'directory' || value === 'value' || value === 'unknown') {
+        return value;
+      }
+      return 'unknown';
+    };
+
+    if (content[0] === 'directory') {
+      if (content[1] && typeof content[1] === 'object' && !Array.isArray(content[1])) {
+        return Object.entries(content[1]).map(([name, type]) => ({
+          name,
+          type: normalizeType(type),
+        }));
+      }
+      if (Array.isArray(content[1])) {
+        return content[1].map((item: unknown) => {
+          const { value } = JournalService.extractSchemeValue(item);
+          return {
+            name: typeof value === 'string' ? value : String(value),
+            type: 'unknown' as const,
+          };
+        });
+      }
+      return null;
     }
 
-    console.log('Journal Request:', {
-      url: this.endpoint,
-      function: func,
-      arguments: args,
-      hasAuth: !!body.authentication,
+    if (Array.isArray(content[0])) {
+      return content[0].map((item: unknown) => {
+        const { value } = JournalService.extractSchemeValue(item);
+        return {
+          name: typeof value === 'string' ? value : String(value),
+          type: 'unknown' as const,
+        };
+      });
+    }
+
+    return null;
+  }
+
+  private buildGatewayUrl(path: string): string {
+    const suffix = path.startsWith('/') ? path : `/${path}`;
+    return `${this.endpointBase}${suffix}`;
+  }
+
+  private parseGatewayError(status: number, payload: unknown): GatewayRequestError {
+    const objectPayload =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as GatewayErrorPayload)
+        : undefined;
+    const code = objectPayload?.error || `http_${status}`;
+    const baseMessage =
+      objectPayload?.message ||
+      (typeof payload === 'string' ? payload : `Gateway request failed (${status})`);
+    const message = `${code}: ${baseMessage}`;
+    return new GatewayRequestError({
+      status,
+      code,
+      message,
+      details: objectPayload?.details,
+      hints: objectPayload?.hints,
+      source: objectPayload?.source,
     });
-    console.log('JSON Body:', JSON.stringify(body, null, 2));
+  }
+
+  private async request<T = any>(input: {
+    method: 'GET' | 'POST';
+    path: string;
+    requiresAuth?: boolean;
+    args?: Record<string, any>;
+  }): Promise<T> {
+    const { method, path, requiresAuth = true, args } = input;
+    const url = this.buildGatewayUrl(path);
+    const headers: Record<string, string> = {};
+    let body: string | undefined;
+
+    if (method === 'POST') {
+      headers['Content-Type'] = 'application/json';
+      if (args && Object.keys(args).length > 0) {
+        body = JSON.stringify({ arguments: args });
+      }
+    }
+
+    if (requiresAuth && this.authentication) {
+      headers.Authorization = `Bearer ${this.authentication}`;
+    }
+
+    console.log('Gateway Request:', {
+      url,
+      method,
+      arguments: args,
+      hasAuth: Boolean(headers.Authorization),
+    });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const response = await fetch(url, {
+        method,
+        headers,
+        body,
         signal: controller.signal,
       });
+
+      const raw = await response.text();
+      let parsed: unknown = raw;
+      if (raw) {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          // Keep plain-text payloads as-is.
+        }
+      }
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.error('Journal request failed:', {
+        console.error('Gateway request failed:', {
           status: response.status,
           statusText: response.statusText,
+          payload: parsed,
         });
-        throw new Error(`Journal request failed: ${response.statusText}`);
+        throw this.parseGatewayError(response.status, parsed);
       }
 
-      const result = await response.json();
-      console.log('Journal Response:', { function: func, result });
-      return result;
+      console.log('Gateway Response:', { path, result: parsed });
+      return parsed as T;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout: The journal service did not respond in time');
+        throw new Error('Request timeout: The gateway did not respond in time');
       }
       throw error;
     }
@@ -139,7 +260,11 @@ export class JournalService {
    * Get current size of the ledger
    */
   async getSize(): Promise<number> {
-    return this.request<number>('size');
+    return this.request<number>({
+      method: 'GET',
+      path: '/general/size',
+      requiresAuth: false,
+    });
   }
 
   /**
@@ -148,7 +273,14 @@ export class JournalService {
   async addPeer(name: string, endpoint: string): Promise<boolean> {
     const nameStr: SchemeString = { '*type/string*': name };
     const endpointStr: SchemeString = { '*type/string*': endpoint };
-    return this.request<boolean>('general-peer!', [nameStr, endpointStr]);
+    return this.request<boolean>({
+      method: 'POST',
+      path: '/general/general-peer',
+      args: {
+        name: nameStr,
+        interface: endpointStr,
+      },
+    });
   }
 
   /**
@@ -158,28 +290,50 @@ export class JournalService {
     const wrappedValue = typeof value === 'string' 
       ? { '*type/string*': value } 
       : value;
-    return this.request<boolean>('set!', [path, wrappedValue]);
+    return this.request<boolean>({
+      method: 'POST',
+      path: '/general/set',
+      args: {
+        path,
+        value: wrappedValue,
+      },
+    });
   }
 
   /**
    * Get the existing value at the path alongside metadata
    */
   async get(path: JournalPath): Promise<JournalResponse> {
-    return this.request<JournalResponse>('get', [path, true]);
+    return this.request<JournalResponse>({
+      method: 'POST',
+      path: '/general/get',
+      args: {
+        path,
+        'details?': true,
+      },
+    });
   }
 
   /**
    * Pin the value at the specified path
    */
   async pin(path: JournalPath): Promise<boolean> {
-    return this.request<boolean>('pin!', [path]);
+    return this.request<boolean>({
+      method: 'POST',
+      path: '/general/pin',
+      args: { path },
+    });
   }
 
   /**
    * Unpin the value at the specified path
    */
   async unpin(path: JournalPath): Promise<boolean> {
-    return this.request<boolean>('unpin!', [path]);
+    return this.request<boolean>({
+      method: 'POST',
+      path: '/general/unpin',
+      args: { path },
+    });
   }
 
   /**
@@ -192,15 +346,15 @@ export class JournalService {
   /**
    * Get peer information
    */
-  async getPeers(path: JournalPath): Promise<PeerInfo[]> {
-    const peerPath = [...path, ['*peer*']];
-    const response = await this.get(peerPath);
-    
-    const directory = JournalService.parseDirectoryResponse(response.content);
-    if (!directory) {
-      return [];
-    }
-
-    return directory.items.map(name => ({ name, endpoint: '' }));
+  async getPeers(): Promise<PeerInfo[]> {
+    const peers = await this.request<unknown[]>({
+      method: 'GET',
+      path: '/general/peers',
+    });
+    if (!Array.isArray(peers)) return [];
+    return peers.map((peer) => {
+      const { value } = JournalService.extractSchemeValue(peer);
+      return { name: typeof value === 'string' ? value : String(value), endpoint: '' };
+    });
   }
 }

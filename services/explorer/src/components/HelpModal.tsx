@@ -25,7 +25,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <section>
             <h3>Getting Started</h3>
             <ol>
-              <li>Enter your journal endpoint URL (e.g., http://localhost:8192/interface)</li>
+              <li>Enter your gateway endpoint URL (e.g., http://localhost:8192/api/v1)</li>
               <li>Enter your authentication password</li>
               <li>Click "Synchronize" to connect and load the latest data</li>
             </ol>

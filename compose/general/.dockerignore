@@ -1,0 +1,8 @@
+# Keep build context minimal for compose/general image
+README.md
+docker-compose.yml
+nginx.conf
+version.txt
+.git
+.gitignore
+...

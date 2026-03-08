@@ -13,10 +13,12 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    permissions: write-all
-    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Login to Github registry
+        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -30,10 +32,14 @@ jobs:
       - name: TypeScript build check
         working-directory: ./services/gateway
         run: npm run build
-      - name: Build and push versioned Docker image
+      - name: Build versioned Docker image
         run: |
           version=$( cat ./services/gateway/version.txt )
           docker build ./services/gateway --tag ghcr.io/${{ github.repository }}/gateway:$version
+      - name: Push versioned Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          version=$( cat ./services/gateway/version.txt )
           docker push ghcr.io/${{ github.repository }}/gateway:$version
       - name: Retag and push latest Docker image
         if: github.ref == 'refs/heads/main'

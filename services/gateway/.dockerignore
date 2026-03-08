@@ -1,0 +1,9 @@
+node_modules
+dist
+npm-debug.log*
+yarn-error.log*
+.git
+.gitignore
+README.md
+ai-spec.md
+version.txt

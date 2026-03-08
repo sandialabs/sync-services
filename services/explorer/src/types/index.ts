@@ -29,6 +29,7 @@ export interface TreeNode {
   id: string;
   label: string;
   type: 'peer' | 'directory' | 'file';
+  valueType?: DirectoryEntryType;
   path: JournalPath;
   children?: TreeNode[];
   isPinned?: boolean;
@@ -52,7 +53,7 @@ export interface HistoryEntry {
 // Journal API types
 export interface JournalRequest {
   function: string;
-  arguments?: any[];
+  arguments?: Record<string, any> | any[];
   authentication?: string;
 }
 
@@ -71,4 +72,11 @@ export type SchemeValue = SchemeString | SchemeByteVector;
 export interface DirectoryResult {
   items: string[];
   isComplete: boolean;
+}
+
+export type DirectoryEntryType = 'directory' | 'value' | 'unknown';
+
+export interface DirectoryEntry {
+  name: string;
+  type: DirectoryEntryType;
 }

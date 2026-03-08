@@ -31,6 +31,11 @@
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tree-node-icon.disabled {
+  cursor: default;
 }
 
 .tree-node-label {
@@ -47,6 +52,32 @@
   gap: 4px;
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+.tree-node-type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-right: 8px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.tree-node-type-directory {
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+.tree-node-type-value {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.tree-node-type-unknown {
+  color: var(--orange);
+  border-color: var(--orange);
 }
 
 .tree-node-content:hover .tree-node-actions {

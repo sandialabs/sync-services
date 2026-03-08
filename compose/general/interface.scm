@@ -11,8 +11,10 @@
 
   ;; install and instantiate standard library
   (call `(lambda (root)
-           ((root 'set!) '(control class standard) ,standard)
-           ((root 'set!) '(control object standard) (((eval (caddr ,standard)) #f ,standard)))))
+           (let ((init (caddr ,standard)))
+             ((root 'set!) '(control class standard) ,standard)
+             ((root 'set!) '(control object standard)
+              (((eval `(lambda* ,(cddadr init) ,@(cddr init))) ,standard))))))
 
   ;; install required classes
   (call `(lambda (root) ((root 'set!) '(control class chain) ,chain)))
@@ -61,10 +63,9 @@
                                   ((root 'get) '(interface secret)))))
                 (error 'authentication-error "Could not authenticate restricted interface call"))
             (case (cadr func)
-              ((*secret*) (lambda (root secret-old secret-new)
-                            (if (not (equal? (sync-hash (expression->byte-vector secret-old)) ((root 'get) '(interface secret))))
-                                (error 'authentication-error "Could not authenticate secret update"))
-                            ((root 'set!) '(interface secret) (sync-hash (expression->byte-vector secret-new)))))
+              ((*secret*)
+               (let ((secret-new (cadr (assoc 'secret (cadr args)))))
+                 ((root 'set!) '(interface secret) (sync-hash (expression->byte-vector secret-new)))))
               ((*step*)
                (let* ((node ((root 'get) '(control object ledger)))
                       (ledger ((eval (byte-vector->expression (sync-car node))) node)))
@@ -77,24 +78,28 @@
               ((general-peer!)
                (let* ((node ((root 'get) '(control object ledger)))
                       (ledger ((eval (byte-vector->expression (sync-car node))) node))
-                      (result ((ledger 'peer!) (caadr args)
+                      (name (cadr (assoc 'name (cadr args))))
+                      (interface (cadr (assoc 'interface (cadr args))))
+                      (result ((ledger 'peer!) name
                                `((information (lambda ()
-                                                (sync-remote ,(cadr (cadr args))
+                                                (sync-remote ,interface
                                                              '((function information)))))
                                  (synchronize (lambda (index)
-                                                (sync-remote ,(cadr (cadr args))
+                                                (sync-remote ,interface
                                                              `((function synchronize)
-                                                               (arguments (,index))))))
+                                                               (arguments ((index ,index)))))))
                                  (resolve (lambda (source target)
-                                            (sync-remote ,(cadr (cadr args))
+                                            (sync-remote ,interface
                                                          `((function resolve)
-                                                           (arguments (,source ,target))))))))))
+                                                           (arguments ((index ,source) (path ,target)))))))))))
                  ((root 'set!) '(control object ledger) (ledger)) result))
               (else 
                (let* ((node ((root 'get) '(control object ledger)))
                       (ledger ((eval (byte-vector->expression (sync-car node))) node))
-                      (result (apply (ledger (cadr func)) (if args (cadr args) '()))))
+                      (flat (let loop ((in (if args (reverse (cadr args)) '())) (out '()))
+                              (if (null? in) out
+                                  (loop (cdr in) (append `(,(symbol->keyword (caar in)) ,(cadar in)) out)))))
+                      (result (apply (ledger (cadr func)) flat)))
                  ((root 'set!) '(control object ledger) (ledger)) result)))))))
 
-  "Installed base interface"
-  result)
+  "Installed base interface")

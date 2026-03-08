@@ -59,22 +59,22 @@ docker run -p 8080:80 explorer
 
 ## Configuration
 
-The explorer connects to a synchronic web journal endpoint. You'll need:
+The explorer connects to a synchronic web gateway endpoint. You'll need:
 
 1. A running journal service (e.g., using the compose/general setup)
-2. The journal's endpoint URL (e.g., http://localhost:8192/interface/json)
+2. The gateway endpoint URL (e.g., http://localhost:8192/api/v1)
 3. The authentication password
 
 ### Environment Variables
 
 You can pre-configure the endpoint and password using environment variables:
 
-- `SYNC_EXPLORER_ENDPOINT`: Default journal endpoint URL
+- `SYNC_EXPLORER_ENDPOINT`: Default gateway endpoint URL
 - `SYNC_EXPLORER_PASSWORD`: Default authentication password
 
 #### Development
 ```bash
-REACT_APP_SYNC_EXPLORER_ENDPOINT=http://localhost:8192/interface/json \
+REACT_APP_SYNC_EXPLORER_ENDPOINT=http://localhost:8192/api/v1 \
 REACT_APP_SYNC_EXPLORER_PASSWORD=mypassword \
 npm start
 ```
@@ -82,14 +82,14 @@ npm start
 #### Docker
 ```bash
 docker run -p 8080:80 \
-  -e SYNC_EXPLORER_ENDPOINT=http://localhost:8192/interface/json \
+  -e SYNC_EXPLORER_ENDPOINT=http://localhost:8192/api/v1 \
   -e SYNC_EXPLORER_PASSWORD=mypassword \
   explorer
 ```
 
 ## Usage
 
-1. Enter your journal endpoint and password in the toolbar
+1. Enter your gateway endpoint and password in the toolbar
 2. Click "Synchronize" to connect
 3. Navigate through the file tree in the left pane
 4. View and edit content in the middle pane

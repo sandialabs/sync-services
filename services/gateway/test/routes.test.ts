@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import Fastify from "fastify";
 import { gatewayRoutes } from "../src/routes";
+import { JournalSemanticError } from "../src/journal";
 import type { JournalCall, JournalClient } from "../src/journal";
 
 interface MockJournal {
@@ -78,12 +79,15 @@ test("restricted route returns 401 without auth", async (t) => {
   assert.equal(body.error, "unauthorized");
 });
 
-test("POST /api/v1/general/get accepts JSON array payload", async (t) => {
+test("POST /api/v1/general/get accepts JSON keyword-object payload", async (t) => {
   const mock = createMockJournal();
   const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
   t.after(async () => app.close());
 
-  const args = [[["*state*", "docs"], true]];
+  const args = {
+    path: [["*state*", "docs"]],
+    "details?": true,
+  };
   const res = await app.inject({
     method: "POST",
     url: "/api/v1/general/get",
@@ -103,12 +107,15 @@ test("POST /api/v1/general/get accepts JSON array payload", async (t) => {
   });
 });
 
-test("POST /api/v1/general/get accepts JSON { arguments: [...] } payload", async (t) => {
+test("POST /api/v1/general/get accepts JSON { arguments: { ... } } payload", async (t) => {
   const mock = createMockJournal();
   const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
   t.after(async () => app.close());
 
-  const args = [[["*state*", "docs"], true]];
+  const args = {
+    path: [["*state*", "docs"]],
+    "details?": true,
+  };
   const res = await app.inject({
     method: "POST",
     url: "/api/v1/general/get",
@@ -117,6 +124,31 @@ test("POST /api/v1/general/get accepts JSON { arguments: [...] } payload", async
       "content-type": "application/json",
     },
     payload: { arguments: args },
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.jsonCalls.length, 1);
+  assert.deepEqual(mock.jsonCalls[0], {
+    functionName: "get",
+    args,
+    authentication: "password",
+  });
+});
+
+test("POST /api/v1/general/get accepts legacy JSON array payload", async (t) => {
+  const mock = createMockJournal();
+  const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
+  t.after(async () => app.close());
+
+  const args = [[["path", [["*state*", "docs"]]], ["details?", true]]];
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/v1/general/get",
+    headers: {
+      authorization: "Bearer password",
+      "content-type": "application/json",
+    },
+    payload: args,
   });
 
   assert.equal(res.statusCode, 200);
@@ -140,14 +172,17 @@ test("POST /api/v1/general/get accepts Lisp payload and wraps expression", async
       authorization: "Bearer password",
       "content-type": "text/plain",
     },
-    payload: "(((*state* docs)) #t)",
+    payload: "(((path ((*state* docs))) (details? #t)))",
   });
 
   assert.equal(res.statusCode, 200);
   assert.equal(mock.lispCalls.length, 1);
   assert.equal(mock.lispCalls[0].functionName, "get");
   assert.match(mock.lispCalls[0].expression, /^\(\(function get\) /);
-  assert.match(mock.lispCalls[0].expression, /\(arguments \(\(\(\*state\* docs\)\) #t\)\)/);
+  assert.match(
+    mock.lispCalls[0].expression,
+    /\(arguments \(\(\(path \(\(\*state\* docs\)\)\) \(details\? #t\)\)\)\)/
+  );
   assert.match(mock.lispCalls[0].expression, /\(authentication "password"\)/);
 });
 
@@ -222,5 +257,49 @@ test("admin control routes forward when enabled", async (t) => {
     functionName: "*step*",
     args: [],
     authentication: "password",
+  });
+});
+
+test("relays journal semantic error payloads as HTTP errors (JSON mode)", async (t) => {
+  const journal: JournalClient = {
+    async callJson(): Promise<unknown> {
+      throw new JournalSemanticError({
+        code: "authentication-error",
+        message: "Could not authenticate restricted interface call",
+        details: [
+          "error",
+          { "*type/quoted*": "authentication-error" },
+          { "*type/string*": "Could not authenticate restricted interface call" },
+        ],
+      });
+    },
+    async callLisp(): Promise<unknown> {
+      return { ok: true };
+    },
+  };
+
+  const app = await createApp({ allowAdminRoutes: false, journal });
+  t.after(async () => app.close());
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/v1/general/get",
+    headers: {
+      authorization: "Bearer password",
+      "content-type": "application/json",
+    },
+    payload: { arguments: { path: [["*state*", "docs"]], "details?": true } },
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.deepEqual(res.json(), {
+    error: "authentication-error",
+    message: "Could not authenticate restricted interface call",
+    details: [
+      "error",
+      { "*type/quoted*": "authentication-error" },
+      { "*type/string*": "Could not authenticate restricted interface call" },
+    ],
+    source: "journal",
   });
 });

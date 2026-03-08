@@ -3,6 +3,16 @@ FROM node:20-alpine3.20 AS builder
 
 WORKDIR /app
 
+ARG CUSTOM_SETUP=""
+
+RUN set -eu; \
+    if [ -n "$CUSTOM_SETUP" ]; then \
+      echo "$CUSTOM_SETUP" | base64 -d > /tmp/custom-setup.sh; \
+      chmod +x /tmp/custom-setup.sh; \
+      /bin/sh -eu /tmp/custom-setup.sh; \
+      rm -f /tmp/custom-setup.sh; \
+    fi
+
 # Copy package files
 COPY package*.json ./
 
@@ -13,7 +23,7 @@ RUN npm install
 COPY . .
 
 # Run tests
-RUN npm test -- --watchAll=false --passWithNoTests
+RUN npm test -- --watchAll=false
 
 # Build the application
 RUN npm run build
@@ -22,6 +32,16 @@ RUN npm run build
 FROM node:20-alpine3.20
 
 WORKDIR /app
+
+ARG CUSTOM_SETUP=""
+
+RUN set -eu; \
+    if [ -n "$CUSTOM_SETUP" ]; then \
+      echo "$CUSTOM_SETUP" | base64 -d > /tmp/custom-setup.sh; \
+      chmod +x /tmp/custom-setup.sh; \
+      /bin/sh -eu /tmp/custom-setup.sh; \
+      rm -f /tmp/custom-setup.sh; \
+    fi
 
 # Install serve globally
 RUN npm install -g serve

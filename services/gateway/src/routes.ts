@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { getAuthSecret } from "./auth";
 import type { JournalClient } from "./journal";
+import { JournalSemanticError } from "./journal";
 
 export interface GatewayRoutesOptions {
   journal: JournalClient;
@@ -35,19 +36,37 @@ const requireAuth = (request: FastifyRequest): string => {
 const escapeLispString = (value: string): string =>
   value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
-const extractJsonArguments = (body: unknown): unknown[] => {
+const extractJsonArguments = (body: unknown): unknown => {
+  if (body === undefined) {
+    return undefined;
+  }
   if (Array.isArray(body)) {
     return body;
   }
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return [];
+  if (!body || typeof body !== "object") {
+    throw new Error(
+      "JSON body must provide an argument object/array (for example { arguments: { ... } })."
+    );
   }
-  const maybeArgs = (body as { arguments?: unknown }).arguments;
-  if (maybeArgs === undefined) return [];
-  if (!Array.isArray(maybeArgs)) {
-    throw new Error("JSON body must use { arguments: [...] }");
+  const record = body as Record<string, unknown>;
+  const maybeArgs = record.arguments;
+  if (maybeArgs !== undefined) {
+    if (maybeArgs === null || typeof maybeArgs !== "object") {
+      throw new Error(
+        "JSON body must use an arguments object/array (for example { arguments: { ... } })."
+      );
+    }
+    return maybeArgs;
   }
-  return maybeArgs;
+
+  if ("function" in record || "authentication" in record) {
+    throw new Error(
+      "Gateway JSON bodies should provide only operation arguments (for example { arguments: { ... } })."
+    );
+  }
+
+  // Treat plain object bodies as direct keyword argument objects.
+  return record;
 };
 
 const extractLispArguments = (body: unknown): string => {
@@ -125,7 +144,7 @@ const controlAliases = {
 
 const publicGeneralFunctions = new Set<string>(["synchronize", "resolve"]);
 const requestModeDescription =
-  "JSON mode: Content-Type application/json with either a top-level array or { arguments: [...] }. Lisp mode: Content-Type text/plain or application/lisp with a raw Lisp arguments expression (the gateway wraps it into the full interface call).";
+  "JSON mode: Content-Type application/json with a keyword argument object (preferred) or { arguments: { ... } } wrapper. Legacy array arguments are also accepted for compatibility. Lisp mode: Content-Type text/plain or application/lisp with a raw Lisp arguments expression (the gateway wraps it into the full interface call).";
 
 const generalOperationDocs: Record<string, { summary: string; description: string }> = {
   get: {
@@ -231,7 +250,7 @@ const controlOperationDocs: Record<string, { summary: string; description: strin
 const argumentsBodySchema = {
   type: ["array", "object", "string"],
   description:
-    "Array/object for JSON mode, or string for Lisp mode. Object form should use { arguments: [...] }.",
+    "Object/array for JSON mode, or string for Lisp mode. Preferred JSON form uses keyword arguments as an object, optionally wrapped as { arguments: { ... } }.",
 } as const;
 
 export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
@@ -322,12 +341,12 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: application/json" \\
-  -d '[[["*state*","docs"], true]]'</code></pre>
+  -d '{"arguments":{"path":[["*state*","docs"]],"details?":true}}'</code></pre>
       <p>Lisp body call:</p>
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: text/plain" \\
-  -d '(((*state* docs)) #t)'</code></pre>
+  -d '((path ((*state* docs))) (details? #t))'</code></pre>
     </div>
   </body>
 </html>`)
@@ -526,12 +545,22 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       });
     }
     if (
+      errorMessage.includes("JSON body must provide") ||
       errorMessage.includes("JSON body must use") ||
+      errorMessage.includes("Gateway JSON bodies should provide") ||
       errorMessage.includes("Lisp requests must provide")
     ) {
       return reply.code(400).send({
         error: "invalid_request",
         message: errorMessage,
+      });
+    }
+    if (error instanceof JournalSemanticError) {
+      return reply.code(error.statusCode).send({
+        error: error.code || "journal_error",
+        message: error.message,
+        details: error.details,
+        source: "journal",
       });
     }
     request.log.error({ err: error }, "Unhandled gateway error");

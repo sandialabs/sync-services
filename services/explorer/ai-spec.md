@@ -67,19 +67,15 @@ Request bodies will always have the following shape:
 ```json
 {
     "function": <function name>,
-    "arguments": [
-        "<potentially>",
-        "<empty>",
-        "<list>",
-        "<of>",
-        "<positional>",
-        "<arguments>",
-    ],
+    "arguments": {
+        "<keyword-1>": "<value-1>",
+        "<keyword-2>": "<value-2>"
+    },
     "authentication": <password>,
 }
 ```
 
-Arguments can be any valid JSON type.
+Arguments can be any valid JSON type and are passed as keyword-style fields.
 If there are no arguments or authentication is not requred, these fields can be omitted.
 On the journal side, the build-in scheme interpreter will convert JSON types into native s7 Scheme representations.
 There is some nuance to this, but for the purposes of this application, please note the following:
@@ -119,19 +115,19 @@ The following is the authoritative list of Journal API functions that can be cal
 - `general-peer!`:
   - Description: add a new peer 
   - Authenticated: yes
-  - Arguments: `[<peer name as symbol>, <http endpoint as string>]`
+  - Arguments: `{ "name": <peer name as symbol>, "interface": <http endpoint as string> }`
   - Return `<true|false to indicate success>`
 - `set!`:
   - Description: set data at path to the new value.
     - if the value is the list `["nothing"]`, then the effect is to delete the document
   - Authenticated: yes
-  - Arguments: [`<path>`, `<value with any type>`]
+  - Arguments: `{ "path": <path>, "value": <value with any type> }`
   - Return `<true|false to indicate success>`
 - `get`
   - Description: get the existing value at the path alongside metadata.
-    - for the purpose of this app, the second argument MUST be set to true
+    - for the purpose of this app, `"details?"` MUST be set to `true`
   - Authenticated: yes
-  - Arguments: [`<path>`, true]
+  - Arguments: `{ "path": <path>, "details?": true }`
   - Return `{ "content": <value with any type>, "pinned?": <canonical path>, "proof": <arbitrarily complex object with cryptographic information>}`
     - if the path is a directory, then the `content` field will the following format `["directory", { <item name>: <item type>, <item name>: <item type> }, <true or false>]`
       - item type can be one of `directory`, `value`, or `unknown`
@@ -141,11 +137,11 @@ The following is the authoritative list of Journal API functions that can be cal
 - `pin!`
   - Description: pin the value at the specified path so it doesn't get pruned
   - Authenticated: yes
-  - Arguments: [`<path>`]
+  - Arguments: `{ "path": <path> }`
   - Return `<true|false to indicate success>`
 - `unpin!`
   - Description: unpin the value at the specified path so it gets pruned once enough time has passed 
-  - Arguments: [`<path>`]
+  - Arguments: `{ "path": <path> }`
   
 ## Application Overview 
 

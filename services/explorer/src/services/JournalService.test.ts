@@ -83,14 +83,51 @@ describe('JournalService', () => {
       expect(JournalService.parseDirectoryResponse(['directory', 'not-an-object'])).toBeNull();
     });
   });
+
+  describe('parseDirectoryEntries', () => {
+    it('should parse entry types from object-map directory payload', () => {
+      const input = ['directory', { folder: 'directory', doc: 'value', mystery: 'unknown' }, true];
+      const result = JournalService.parseDirectoryEntries(input);
+      expect(result).toEqual([
+        { name: 'folder', type: 'directory' },
+        { name: 'doc', type: 'value' },
+        { name: 'mystery', type: 'unknown' },
+      ]);
+    });
+
+    it('should treat legacy array directory payload as unknown entry types', () => {
+      const input = ['directory', [{ '*type/string*': 'a' }, 'b'], true];
+      const result = JournalService.parseDirectoryEntries(input);
+      expect(result).toEqual([
+        { name: 'a', type: 'unknown' },
+        { name: 'b', type: 'unknown' },
+      ]);
+    });
+
+    it('should return null for non-directory content', () => {
+      expect(JournalService.parseDirectoryEntries({ '*type/string*': 'hello' })).toBeNull();
+    });
+  });
 });
 
 describe('JournalService API', () => {
   let service: JournalService;
   let mockFetch: jest.Mock;
+  const mockJsonResponse = (payload: unknown, ok = true, status = 200, statusText = 'OK') => ({
+    ok,
+    status,
+    statusText,
+    text: () => Promise.resolve(JSON.stringify(payload)),
+  });
+  const mockTextResponse = (payload: string, ok = true, status = 200, statusText = 'OK') => ({
+    ok,
+    status,
+    statusText,
+    text: () => Promise.resolve(payload),
+  });
 
   beforeEach(() => {
-    service = new JournalService('http://test-endpoint.com', 'test-password');
+    service = new JournalService('http://test-endpoint.com/api/v1', 'test-password');
     mockFetch = jest.fn();
     global.fetch = mockFetch;
   });
@@ -101,20 +138,16 @@ describe('JournalService API', () => {
 
   describe('getSize', () => {
     it('should call size endpoint and return result', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(42),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('42'));
 
       const result = await service.getSize();
 
       expect(result).toBe(42);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/size',
         expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ function: 'size' }),
+          method: 'GET',
+          headers: {},
         })
       );
     });
@@ -127,24 +160,22 @@ describe('JournalService API', () => {
         'pinned?': null,
         proof: {},
       };
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      });
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse));
 
       const path = [['*state*', 'test']];
       const result = await service.get(path);
 
       expect(result).toEqual(mockResponse);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/get',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'get',
-            arguments: [path, true],
-            authentication: 'test-password',
+            arguments: { path, 'details?': true },
           }),
         })
       );
@@ -153,48 +184,44 @@ describe('JournalService API', () => {
 
   describe('set', () => {
     it('should call set endpoint with path and string value', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(true),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const path = [['*state*', 'test']];
       const result = await service.set(path, 'test value');
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/set',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'set!',
-            arguments: [path, { '*type/string*': 'test value' }],
-            authentication: 'test-password',
+            arguments: { path, value: { '*type/string*': 'test value' } },
           }),
         })
       );
     });
 
     it('should call set endpoint with non-string value as-is', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(true),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const path = [['*state*', 'test']];
       const result = await service.set(path, true);
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/set',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'set!',
-            arguments: [path, true],
-            authentication: 'test-password',
+            arguments: { path, value: true },
           }),
         })
       );
@@ -203,24 +230,22 @@ describe('JournalService API', () => {
 
   describe('pin', () => {
     it('should call pin endpoint with path', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(true),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const path = [-1, ['*state*', 'test']];
       const result = await service.pin(path);
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/pin',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'pin!',
-            arguments: [path],
-            authentication: 'test-password',
+            arguments: { path },
           }),
         })
       );
@@ -229,24 +254,22 @@ describe('JournalService API', () => {
 
   describe('unpin', () => {
     it('should call unpin endpoint with path', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(true),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const path = [-1, ['*state*', 'test']];
       const result = await service.unpin(path);
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/unpin',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'unpin!',
-            arguments: [path],
-            authentication: 'test-password',
+            arguments: { path },
           }),
         })
       );
@@ -255,24 +278,22 @@ describe('JournalService API', () => {
 
   describe('delete', () => {
     it('should call set with nothing value', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(true),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const path = [['*state*', 'test']];
       const result = await service.delete(path);
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/set',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'set!',
-            arguments: [path, ['nothing']],
-            authentication: 'test-password',
+            arguments: { path, value: ['nothing'] },
           }),
         })
       );
@@ -281,41 +302,68 @@ describe('JournalService API', () => {
 
   describe('addPeer', () => {
     it('should call general-peer! with name and endpoint', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(true),
-      });
+      mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const result = await service.addPeer('peer-name', 'http://peer-endpoint.com');
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com',
+        'http://test-endpoint.com/api/v1/general/general-peer',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
           body: JSON.stringify({
-            function: 'general-peer!',
-            arguments: [
-              { '*type/string*': 'peer-name' },
-              { '*type/string*': 'http://peer-endpoint.com' },
-            ],
-            authentication: 'test-password',
+            arguments: {
+              name: { '*type/string*': 'peer-name' },
+              interface: { '*type/string*': 'http://peer-endpoint.com' },
+            },
           }),
         })
       );
     });
   });
 
-  describe('error handling', () => {
-    it('should throw error on non-ok response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-      });
+  describe('getPeers', () => {
+    it('should call peers endpoint and normalize names', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse([{ '*type/string*': 'alice' }, 'bob'])
+      );
+      const result = await service.getPeers();
+      expect(result).toEqual([
+        { name: 'alice', endpoint: '' },
+        { name: 'bob', endpoint: '' },
+      ]);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://test-endpoint.com/api/v1/general/peers',
+        expect.objectContaining({
+          method: 'GET',
+          headers: {
+            Authorization: 'Bearer test-password',
+          },
+        })
+      );
+    });
+  });
 
-      await expect(service.getSize()).rejects.toThrow();
+  describe('error handling', () => {
+    it('should surface gateway error message on non-ok response', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse(
+          {
+            error: 'authentication-error',
+            message: 'Could not authenticate restricted interface call',
+          },
+          false,
+          401,
+          'Unauthorized'
+        )
+      );
+      await expect(service.getPeers()).rejects.toThrow(
+        'authentication-error: Could not authenticate restricted interface call'
+      );
     });
 
     it('should throw error on network failure', async () => {

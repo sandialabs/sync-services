@@ -124,6 +124,7 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
       id: `${node.id}-state`,
       label: 'state',
       type: 'directory',
+      valueType: 'directory',
       path: [...node.path, ['*state*']],
       isLocal: false,
     },
@@ -131,6 +132,7 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
       id: `${node.id}-peer`,
       label: 'peer',
       type: 'directory',
+      valueType: 'directory',
       path: [...node.path, ['*peer*']],
       isLocal: false,
     },
@@ -149,26 +151,29 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
 
       const response = await journalService.get(node.path);
 
-      const directory = JournalService.parseDirectoryResponse(response.content);
+      const directory = JournalService.parseDirectoryEntries(response.content);
       
       if (!directory) {
         // Not a directory - this is a file, update the node type
         node.type = 'file';
+        node.valueType = 'value';
         node.children = undefined;
         setTreeData([...treeData]);
         return;
       }
 
-      const children: TreeNode[] = directory.items
-        .filter(itemName => itemName !== '*directory*') // Hide the directory marker file
-        .sort((a, b) => a.localeCompare(b)) // Sort alphabetically
-        .map(itemName => {
+      const children: TreeNode[] = directory
+        .filter(entry => entry.name !== '*directory*') // Hide the directory marker file
+        .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+        .map(entry => {
+          const nodeType: TreeNode['type'] =
+            entry.type === 'directory' ? 'directory' : 'file';
           return {
-            id: `${node.id}-${itemName}`,
-            label: itemName,
-            // Default to directory, will be updated when expanded
-            type: 'directory' as const,
-            path: buildChildPath(node.path, itemName),
+            id: `${node.id}-${entry.name}`,
+            label: entry.name,
+            type: nodeType,
+            valueType: entry.type,
+            path: buildChildPath(node.path, entry.name),
             isLocal: node.isLocal,
           };
         });
@@ -180,6 +185,7 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
         id: `${node.id}-error`,
         label: `Error: ${error instanceof Error ? error.message : 'Failed to load'}`,
         type: 'file',
+        valueType: 'unknown',
         path: node.path,
         isLocal: false,
       }];
@@ -256,6 +262,9 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
     const isError = node.label.startsWith('Error:');
     const isSpecial = node.label === 'peer' || node.label === 'state';
     const isDirectory = node.type === 'directory';
+    const nodeKind = node.valueType ?? (isDirectory ? 'directory' : 'value');
+    const typeBadge =
+      nodeKind === 'directory' ? 'DIR' : nodeKind === 'value' ? 'DOC' : 'UNK';
     // Only show add buttons for confirmed directories (those that have been expanded and have children)
     const isConfirmedDirectory = isDirectory && node.children !== undefined;
 
@@ -265,8 +274,11 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
           className={`tree-node-content ${isSelected ? 'selected' : ''}`}
           style={{ paddingLeft: `${level * 10}px` }}
         >
-          <span className="tree-node-icon" onClick={() => isDirectory && toggleNode(node)}>
-            {isDirectory ? (isExpanded ? '▼' : '▶') : '📄'}
+          <span
+            className={`tree-node-icon ${!isDirectory ? 'disabled' : ''}`}
+            onClick={() => isDirectory && toggleNode(node)}
+          >
+            {isDirectory ? (isExpanded ? '▼' : '▶') : nodeKind === 'unknown' ? '❔' : '📄'}
           </span>
           <span 
             className={`tree-node-label ${isSpecial ? 'special' : ''} ${isError ? 'tree-node-error' : ''}`}
@@ -274,6 +286,9 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
           >
             {node.label}
           </span>
+          {!isError && !isSpecial && (
+            <span className={`tree-node-type tree-node-type-${nodeKind}`}>{typeBadge}</span>
+          )}
           {node.isLocal && (
             <div className="tree-node-actions">
               <button

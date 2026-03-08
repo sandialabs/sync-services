@@ -94,9 +94,12 @@ Gateway supports both JSON and Lisp request bodies for `POST` operation endpoint
 
 ```json
 {
-  "arguments": [ ... ]
+  "arguments": { ... }
 }
 ```
+
+- Preferred for ledger calls: keyword-style argument object fields.
+- Direct keyword-object bodies are also accepted (for example `{ "path": ..., "details?": true }`).
 
 - Forwarded to: `/interface/json`
 
@@ -108,7 +111,7 @@ Gateway supports both JSON and Lisp request bodies for `POST` operation endpoint
 Example body:
 
 ```scheme
-(((*state* docs article hash)) #t)
+((path ((*state* docs article hash))) (details? #t))
 ```
 
 Gateway composes the full Lisp call expression and forwards to:
@@ -175,7 +178,7 @@ Restricted JSON call:
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: application/json" \
-  -d '{"arguments":[[["*state*","docs","article","hash"],true]]}'
+  -d '{"arguments":{"path":[["*state*","docs","article","hash"]],"details?":true}}'
 ```
 
 Restricted Lisp call:
@@ -184,7 +187,7 @@ Restricted Lisp call:
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: text/plain" \
-  -d '(((*state* docs article hash)) #t)'
+  -d '((path ((*state* docs article hash))) (details? #t))'
 ```
 
 Forwarding debug mode:
