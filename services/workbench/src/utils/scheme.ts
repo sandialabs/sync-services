@@ -107,6 +107,8 @@ export const prettifyScheme = (code: string): string => {
   const indentStr = '  ';
   let lineStart = true;
   let prevToken = '';
+  const prefixTokens = new Set(["'", '`', ',', ',@']);
+  const openingTokens = new Set(['(', '[', '{']);
 
   for (let t = 0; t < tokens.length; t++) {
     const token = tokens[t];
@@ -146,6 +148,8 @@ export const prettifyScheme = (code: string): string => {
     if (token === "'" || token === '`' || token === ',' || token === ',@') {
       if (lineStart) {
         result += indentStr.repeat(indent);
+      } else if (!openingTokens.has(prevToken) && !prefixTokens.has(prevToken)) {
+        result += ' ';
       }
       result += token;
       lineStart = false;
@@ -156,7 +160,7 @@ export const prettifyScheme = (code: string): string => {
     // Regular token (including #u(...) vectors which are kept as single tokens)
     if (lineStart) {
       result += indentStr.repeat(indent);
-    } else if (prevToken !== '(' && prevToken !== "'" && prevToken !== '`' && prevToken !== ',' && prevToken !== ',@') {
+    } else if (!openingTokens.has(prevToken) && !prefixTokens.has(prevToken)) {
       result += ' ';
     }
     result += token;

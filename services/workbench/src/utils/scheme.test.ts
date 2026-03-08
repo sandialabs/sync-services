@@ -91,6 +91,18 @@ describe('prettifyScheme', () => {
       expect(result).toContain(',@xs');
       expect(result).toContain('3)');
     });
+
+    it('should preserve space before single quote when quote is a separate token', () => {
+      const input = '(list a \'b)';
+      const result = prettifyScheme(input);
+      expect(result).toBe('(list a \'b)');
+    });
+
+    it('should preserve space before quoted list', () => {
+      const input = '(list a \'(b c))';
+      const result = prettifyScheme(input);
+      expect(result).toBe('(list a \'(b c))');
+    });
   });
 
   describe('byte vectors (#u syntax)', () => {

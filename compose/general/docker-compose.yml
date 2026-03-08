@@ -4,7 +4,7 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/general:1.0.1
+    image: ghcr.io/sandialabs/sync-services/general:1.1.1
     container_name: journal
     networks:
       - docker
@@ -25,7 +25,7 @@ services:
       SYNC_EXPLORER_ENDPOINT: /api/v1
 
   workbench:
-    image: ghcr.io/sandialabs/sync-services/workbench:1.0.0
+    image: ghcr.io/sandialabs/sync-services/workbench:1.0.1
     container_name: workbench
     networks:
       - docker
@@ -47,7 +47,7 @@ services:
       ALLOW_ADMIN_ROUTES: "1"
 
   router:
-    image: ghcr.io/sandialabs/sync-services/router:1.0.0
+    image: ghcr.io/sandialabs/sync-services/router:1.1.0
     container_name: router
     environment:
       TLS_CERT_FILE: ${TLS_CERT_FILE:-/etc/nginx/certs/tls.crt}

@@ -57,7 +57,11 @@
           (let ((func (assoc 'function query))
                 (args (assoc 'arguments query))
                 (auth (assoc 'authentication query))
-                (public '(size synchronize resolve information)))
+                (public '(size synchronize resolve information))
+                (restricted '(configuration peers set! get pin! unpin! general-peer!
+                                            step-chain! step-peer! *secret* *step*)))
+            (if (not (or (memq (cadr func) public) (memq (cadr func) restricted)))
+                (error 'function-error "Function not recognized by general interface"))
             (if (and (not (memq (cadr func) public))
                      (not (equal? (sync-hash (expression->byte-vector (cadr auth)))
                                   ((root 'get) '(interface secret)))))

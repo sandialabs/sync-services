@@ -26,7 +26,7 @@
   "get": {
     "description": "Retrieves data at the specified path. If the first element is an integer, it fetches from that chain index (negative indices count from the end). Otherwise fetches from the current staging area. When details? is true, returns content, pinned status, and proof.",
     "template": "((function get) (arguments ((path <path>) (details? <details?>))) (authentication <secret>))",
-    "example": "((function get) (arguments ((path ((*state* mykey))) (details? #t))) (authentication \"mysecret\"))",
+    "example": "((function get) (arguments ((path ((*state* *time*))) (details? #t))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "set!": {
