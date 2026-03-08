@@ -19,18 +19,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare Lisp fixture directory
-        run: |
-          set -eu
-          repository=$(sed -n 's/^ARG LISP_REPOSITORY=//p' ./compose/general/Dockerfile)
-          mkdir -p /tmp/local-lisp
-          for file in control.scm standard.scm log-chain.scm linear-chain.scm tree.scm configuration.scm ledger.scm; do
-            wget -q -O "/tmp/local-lisp/$file" "${repository}${file}"
-          done
-
-      - name: Run compose smoke test with local Lisp override
+      - name: Run compose smoke test
         env:
-          LOCAL_LISP_DIRECTORY: /tmp/local-lisp
           SECRET: ci-smoke-secret
           PORT: "8192"
         run: ./tests/local-compose.sh smoke
