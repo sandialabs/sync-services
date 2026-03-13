@@ -1,6 +1,7 @@
 # Synchronic Web Ledger Compose Network
 
 This compose stack runs one journal with gateway, explorer, workbench, and the dedicated `router` service.
+It can also run the optional `file-system` SMB service through the `filesystem` compose profile.
 
 ## Requirements
 
@@ -19,6 +20,8 @@ This compose stack runs one journal with gateway, explorer, workbench, and the d
 - `ACME_WEBROOT_HOST_PATH` (default `./acme-challenge`): host directory mounted at `/var/www/acme-challenge` for HTTP-01 challenge files
 - `TLS_CERT_FILE` (default `/etc/nginx/certs/tls.crt`): in-container certificate path used by router
 - `TLS_KEY_FILE` (default `/etc/nginx/certs/tls.key`): in-container key path used by router
+- `SMB_PORT` (default `445`): host port exposed by the optional `file-system` service when the `filesystem` profile is enabled
+- `FILE_SYSTEM_IMAGE` (default `sync-services/file-system:dev`): image used by the optional `file-system` service
 
 Gateway note:
 - `ALLOW_ADMIN_ROUTES` is enabled by default in `compose/general/docker-compose.yml`.
@@ -71,6 +74,29 @@ Use the local helper from repository root:
 # Smoke test
 ./tests/local-compose.sh smoke
 ```
+
+The local compose helper enables the SMB file-system service by default:
+
+```bash
+./tests/local-compose.sh up
+./tests/local-compose.sh smoke
+```
+
+If you need to disable it temporarily:
+
+```bash
+ENABLE_FILE_SYSTEM=0 ./tests/local-compose.sh up
+ENABLE_FILE_SYSTEM=0 ./tests/local-compose.sh smoke
+```
+
+If your local Docker/Colima setup cannot execute the amd64-only `journal-sdk:1.1.0` base image used by `compose/general`, you can skip the local `general` build and use the published image instead:
+
+```bash
+USE_REMOTE_GENERAL=1 ./tests/local-compose.sh up
+USE_REMOTE_GENERAL=1 ./tests/local-compose.sh smoke
+```
+
+The journal service itself also runs as `linux/amd64` by default (`GENERAL_PLATFORM=linux/amd64`) because the current published `general` image and its `journal-sdk:1.1.0` base are amd64-only.
 
 ### Optional Local Lisp Sources
 

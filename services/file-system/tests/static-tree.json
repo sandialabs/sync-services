@@ -1,0 +1,218 @@
+[
+  [
+    [
+      [
+        "*state*"
+      ]
+    ],
+    {
+      "content": [
+        "directory",
+        {
+          "docs": "directory",
+          "guide-link": "value",
+          "notes": "directory",
+          "hello.txt": "value",
+          "README.txt": "value"
+        },
+        false
+      ],
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "docs"
+      ]
+    ],
+    {
+      "content": [
+        "directory",
+        {
+          "guide.txt": "value"
+        },
+        false
+      ],
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "notes"
+      ]
+    ],
+    {
+      "content": [
+        "directory",
+        {
+          "todo.txt": "value"
+        },
+        false
+      ],
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "hello.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": {
+            "*type/byte-vector*": "53796e6368726f6e69632066696c652d73797374656d204a534f4e20666978747572652e0a456469742074657374732f7374617469632d747265652e6a736f6e20616e6420726573746172742074686520636f6e7461696e657220746f206368616e676520746869732073686172652e0a"
+          }
+        }
+      },
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "guide-link"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/symlink*": {
+          "target": [
+            [
+              "*state*",
+              "docs",
+              "guide.txt"
+            ]
+          ]
+        }
+      },
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "README.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": {
+            "*type/byte-vector*": "546869732073686172652069732070726f6a65637465642066726f6d2074657374732f7374617469632d747265652e6a736f6e2e0a"
+          }
+        }
+      },
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "docs",
+        "guide.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": "This file lives under docs/.\n"
+        }
+      },
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      [
+        "*state*",
+        "notes",
+        "todo.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": {
+            "*type/byte-vector*": "2d2076616c69646174652070726f6a656374696f6e206d657461646174610a2d206164642073796d6c696e6b206d6f64656c206c617465720a"
+          },
+          "meta": {
+            "mode": 420
+          }
+        }
+      },
+      "pinned?": true
+    }
+  ],
+  [
+    [
+      3,
+      [
+        "*state*",
+        "archive.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": "A mock previous snapshot entry.\n"
+        }
+      },
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      9,
+      [
+        "*peer*",
+        "alice",
+        "chain"
+      ],
+      [
+        "*state*",
+        "current-remote.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": "A mock current related-peer entry.\n"
+        }
+      },
+      "pinned?": false
+    }
+  ],
+  [
+    [
+      9,
+      [
+        "*peer*",
+        "alice",
+        "chain"
+      ],
+      2,
+      [
+        "*state*",
+        "remote-note.txt"
+      ]
+    ],
+    {
+      "content": {
+        "*file-system/file*": {
+          "content": "A mock historical related-peer entry.\n"
+        }
+      },
+      "pinned?": false
+    }
+  ]
+]

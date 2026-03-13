@@ -1,0 +1,33 @@
+name: File System Service
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: "file-system"
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Run .NET contract tests
+        working-directory: ./services/file-system
+        run: dotnet test tests/FileSystem.Server.Tests/FileSystem.Server.Tests.csproj
+
+      - name: Build Docker image
+        working-directory: ./services/file-system
+        run: ./tests/docker-build.sh

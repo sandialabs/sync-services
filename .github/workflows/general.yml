@@ -42,3 +42,23 @@ jobs:
           docker tag ghcr.io/${{ github.repository }}/general:$version \
                      ghcr.io/${{ github.repository }}/general:latest 
           docker push ghcr.io/${{ github.repository }}/general:latest
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install smbclient
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y smbclient
+
+      - name: Run compose smoke with optional file-system service
+        run: |
+          SECRET=password \
+          PORT=8192 \
+          SMB_PORT=1445 \
+          ./tests/local-compose.sh smoke

@@ -4,7 +4,8 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/general:1.1.2
+    image: ghcr.io/sandialabs/sync-services/general:1.1.3
+    platform: ${GENERAL_PLATFORM:-linux/amd64}
     container_name: journal
     networks:
       - docker
@@ -66,6 +67,26 @@ services:
     ports:
       - "${PORT:-8192}:80"
       - "${HTTPS_PORT:-443}:443"
+
+  file-system:
+    image: ${FILE_SYSTEM_IMAGE:-sync-services/file-system:dev}
+    container_name: file-system
+    profiles:
+      - filesystem
+    depends_on:
+      - gateway
+    networks:
+      - docker
+    environment:
+      SYNC_FS_Mode: static-smb
+      SYNC_FS_Backend: http-gateway-stage
+      SYNC_FS_Port: 445
+      SYNC_FS_ShareName: sync
+      SYNC_FS_AllowGuest: "true"
+      SYNC_FS_GatewayBaseUrl: http://gateway/api/v1
+      SYNC_FS_GatewayAuthToken: ${SECRET}
+    ports:
+      - "${SMB_PORT:-445}:445"
 
 volumes:
   database:
