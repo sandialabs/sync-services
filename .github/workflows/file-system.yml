@@ -15,7 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
     steps:
+      - name: Login to Github registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -28,6 +37,33 @@ jobs:
         working-directory: ./services/file-system
         run: dotnet test tests/FileSystem.Server.Tests/FileSystem.Server.Tests.csproj
 
-      - name: Build Docker image
-        working-directory: ./services/file-system
-        run: ./tests/docker-build.sh
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Resolve version
+        id: version
+        run: |
+          echo "value=$(cat ./services/file-system/version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image (PR/non-main validation)
+        if: github.ref != 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/file-system
+          platforms: linux/amd64
+          push: false
+          tags: ghcr.io/${{ github.repository }}/file-system:${{ steps.version.outputs.value }}
+
+      - name: Build and push multi-arch Docker images
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/file-system
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/file-system:${{ steps.version.outputs.value }}
+            ghcr.io/${{ github.repository }}/file-system:latest

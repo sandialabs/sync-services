@@ -1,4 +1,4 @@
-FROM ghcr.io/sandialabs/sync-journal/journal-sdk:1.1.0
+FROM ghcr.io/sandialabs/sync-journal/journal-sdk:1.1.1
 
 ARG LISP_REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/8eba71118f6007798be725fc8417ed73d46d5388/lisp/
 ARG CUSTOM_SETUP=""

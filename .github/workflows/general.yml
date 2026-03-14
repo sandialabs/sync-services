@@ -26,22 +26,32 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Build versioned Docker image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Resolve version
+        id: version
         run: |
-          version=$( cat ./compose/general/version.txt )
-          docker build ./compose/general --tag ghcr.io/${{ github.repository }}/general:$version
-      - name: Push versioned Docker image
+          echo "value=$(cat ./compose/general/version.txt)" >> "$GITHUB_OUTPUT"
+      - name: Build Docker image (PR/non-main validation)
+        if: github.ref != 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./compose/general
+          platforms: linux/amd64
+          push: false
+          tags: ghcr.io/${{ github.repository }}/general:${{ steps.version.outputs.value }}
+      - name: Build and push multi-arch Docker images
         if: github.ref == 'refs/heads/main'
-        run: |
-          version=$( cat ./compose/general/version.txt )
-          docker push ghcr.io/${{ github.repository }}/general:$version
-      - name: Retag and push latest Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          version=$( cat ./compose/general/version.txt )
-          docker tag ghcr.io/${{ github.repository }}/general:$version \
-                     ghcr.io/${{ github.repository }}/general:latest 
-          docker push ghcr.io/${{ github.repository }}/general:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: ./compose/general
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/general:${{ steps.version.outputs.value }}
+            ghcr.io/${{ github.repository }}/general:latest
 
   compose-smoke:
     runs-on: ubuntu-latest

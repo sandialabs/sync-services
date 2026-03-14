@@ -174,9 +174,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({
-            arguments: { path, 'details?': true },
-          }),
+          body: JSON.stringify({ path, 'details?': true }),
         })
       );
     });
@@ -198,9 +196,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({
-            arguments: { path, value: { '*type/string*': 'test value' } },
-          }),
+          body: JSON.stringify({ path, value: { '*type/string*': 'test value' } }),
         })
       );
     });
@@ -220,9 +216,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({
-            arguments: { path, value: true },
-          }),
+          body: JSON.stringify({ path, value: true }),
         })
       );
     });
@@ -244,9 +238,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({
-            arguments: { path },
-          }),
+          body: JSON.stringify({ path }),
         })
       );
     });
@@ -268,9 +260,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({
-            arguments: { path },
-          }),
+          body: JSON.stringify({ path }),
         })
       );
     });
@@ -292,9 +282,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({
-            arguments: { path, value: ['nothing'] },
-          }),
+          body: JSON.stringify({ path, value: ['nothing'] }),
         })
       );
     });
@@ -316,10 +304,8 @@ describe('JournalService API', () => {
             Authorization: 'Bearer test-password',
           },
           body: JSON.stringify({
-            arguments: {
-              name: { '*type/string*': 'peer-name' },
-              interface: { '*type/string*': 'http://peer-endpoint.com' },
-            },
+            name: { '*type/string*': 'peer-name' },
+            interface: { '*type/string*': 'http://peer-endpoint.com' },
           }),
         })
       );

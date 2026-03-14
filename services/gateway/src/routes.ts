@@ -45,23 +45,20 @@ const extractJsonArguments = (body: unknown): unknown => {
   }
   if (!body || typeof body !== "object") {
     throw new Error(
-      "JSON body must provide an argument object/array (for example { arguments: { ... } })."
+      "JSON body must provide an argument object/array."
     );
   }
   const record = body as Record<string, unknown>;
-  const maybeArgs = record.arguments;
-  if (maybeArgs !== undefined) {
-    if (maybeArgs === null || typeof maybeArgs !== "object") {
-      throw new Error(
-        "JSON body must use an arguments object/array (for example { arguments: { ... } })."
-      );
-    }
-    return maybeArgs;
+
+  if ("arguments" in record) {
+    throw new Error(
+      "Gateway JSON bodies must provide operation arguments directly, not under an arguments wrapper."
+    );
   }
 
   if ("function" in record || "authentication" in record) {
     throw new Error(
-      "Gateway JSON bodies should provide only operation arguments (for example { arguments: { ... } })."
+      "Gateway JSON bodies should provide only operation arguments."
     );
   }
 
@@ -144,7 +141,7 @@ const controlAliases = {
 
 const publicGeneralFunctions = new Set<string>(["synchronize", "resolve"]);
 const requestModeDescription =
-  "JSON mode: Content-Type application/json with a keyword argument object (preferred) or { arguments: { ... } } wrapper. Legacy array arguments are also accepted for compatibility. Lisp mode: Content-Type text/plain or application/lisp with a raw Lisp arguments expression (the gateway wraps it into the full interface call).";
+  "JSON mode: Content-Type application/json with a keyword argument object. Legacy array arguments are also accepted for compatibility. Lisp mode: Content-Type text/plain or application/lisp with a raw Lisp arguments expression (the gateway wraps it into the full interface call).";
 
 const generalOperationDocs: Record<string, { summary: string; description: string }> = {
   get: {
@@ -250,7 +247,7 @@ const controlOperationDocs: Record<string, { summary: string; description: strin
 const argumentsBodySchema = {
   type: ["array", "object", "string"],
   description:
-    "Object/array for JSON mode, or string for Lisp mode. Preferred JSON form uses keyword arguments as an object, optionally wrapped as { arguments: { ... } }.",
+    "Object/array for JSON mode, or string for Lisp mode. Preferred JSON form uses keyword arguments as a direct object body.",
 } as const;
 
 export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
@@ -341,7 +338,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: application/json" \\
-  -d '{"arguments":{"path":[["*state*","docs"]],"details?":true}}'</code></pre>
+  -d '{"path":[["*state*","docs"]],"details?":true}'</code></pre>
       <p>Lisp body call:</p>
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
@@ -547,6 +544,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
     if (
       errorMessage.includes("JSON body must provide") ||
       errorMessage.includes("JSON body must use") ||
+      errorMessage.includes("Gateway JSON bodies must provide") ||
       errorMessage.includes("Gateway JSON bodies should provide") ||
       errorMessage.includes("Lisp requests must provide")
     ) {

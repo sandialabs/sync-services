@@ -25,11 +25,7 @@ REQUEST_TIMEOUT_SECONDS="${REQUEST_TIMEOUT_SECONDS:-5}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$COMPOSE_DIR")}"
 LOCAL_COMPOSE_FORCE_HTTP="${LOCAL_COMPOSE_FORCE_HTTP:-1}"
 ENABLE_FILE_SYSTEM="${ENABLE_FILE_SYSTEM:-1}"
-FILE_SYSTEM_IMAGE="${FILE_SYSTEM_IMAGE:-sync-services/file-system:dev}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-}"
-GENERAL_DOCKER_PLATFORM="${GENERAL_DOCKER_PLATFORM:-linux/amd64}"
-GENERAL_PLATFORM="${GENERAL_PLATFORM:-linux/amd64}"
-USE_REMOTE_GENERAL="${USE_REMOTE_GENERAL:-0}"
 
 cleanup_mode="down"
 server_pid=""
@@ -39,18 +35,22 @@ GATEWAY_VERSION="$(cat "$ROOT_DIR/services/gateway/version.txt")"
 EXPLORER_VERSION="$(cat "$ROOT_DIR/services/explorer/version.txt")"
 WORKBENCH_VERSION="$(cat "$ROOT_DIR/services/workbench/version.txt")"
 ROUTER_VERSION="$(cat "$ROOT_DIR/services/router/version.txt")"
+FILE_SYSTEM_VERSION="$(cat "$ROOT_DIR/services/file-system/version.txt")"
 
 GENERAL_REMOTE_TAG="ghcr.io/sandialabs/sync-services/general:$GENERAL_VERSION"
 GATEWAY_REMOTE_TAG="ghcr.io/sandialabs/sync-services/gateway:$GATEWAY_VERSION"
 EXPLORER_REMOTE_TAG="ghcr.io/sandialabs/sync-services/explorer:$EXPLORER_VERSION"
 WORKBENCH_REMOTE_TAG="ghcr.io/sandialabs/sync-services/workbench:$WORKBENCH_VERSION"
 ROUTER_REMOTE_TAG="ghcr.io/sandialabs/sync-services/router:$ROUTER_VERSION"
+FILE_SYSTEM_REMOTE_TAG="ghcr.io/sandialabs/sync-services/file-system:$FILE_SYSTEM_VERSION"
 
 GENERAL_LOCAL_TAG="sync-services/local-general:$GENERAL_VERSION"
 GATEWAY_LOCAL_TAG="sync-services/local-gateway:$GATEWAY_VERSION"
 EXPLORER_LOCAL_TAG="sync-services/local-explorer:$EXPLORER_VERSION"
 WORKBENCH_LOCAL_TAG="sync-services/local-workbench:$WORKBENCH_VERSION"
 ROUTER_LOCAL_TAG="sync-services/local-router:$ROUTER_VERSION"
+FILE_SYSTEM_LOCAL_TAG="sync-services/local-file-system:$FILE_SYSTEM_VERSION"
+FILE_SYSTEM_IMAGE="${FILE_SYSTEM_IMAGE:-$FILE_SYSTEM_REMOTE_TAG}"
 
 resolve_directory() {
     input_path="$1"
@@ -270,51 +270,19 @@ build_and_retag() {
     docker tag "$local_tag" "$remote_tag"
 }
 
-if [ "$USE_REMOTE_GENERAL" = "1" ]; then
-    echo "Using remote general image: $GENERAL_REMOTE_TAG"
-    docker pull "$GENERAL_REMOTE_TAG"
-else
-    build_and_retag "$COMPOSE_DIR" "$GENERAL_LOCAL_TAG" "$GENERAL_REMOTE_TAG" "$LISP_REPOSITORY_ARG" "$GENERAL_DOCKER_PLATFORM"
-fi
+build_and_retag "$COMPOSE_DIR" "$GENERAL_LOCAL_TAG" "$GENERAL_REMOTE_TAG" "$LISP_REPOSITORY_ARG"
 build_and_retag "$ROOT_DIR/services/gateway" "$GATEWAY_LOCAL_TAG" "$GATEWAY_REMOTE_TAG"
 build_and_retag "$ROOT_DIR/services/explorer" "$EXPLORER_LOCAL_TAG" "$EXPLORER_REMOTE_TAG"
 build_and_retag "$ROOT_DIR/services/workbench" "$WORKBENCH_LOCAL_TAG" "$WORKBENCH_REMOTE_TAG"
 build_and_retag "$ROOT_DIR/services/router" "$ROUTER_LOCAL_TAG" "$ROUTER_REMOTE_TAG"
 
 if [ "$ENABLE_FILE_SYSTEM" = "1" ]; then
-    echo "Building $FILE_SYSTEM_IMAGE ..."
-    if docker buildx version >/dev/null 2>&1; then
-        if [ -n "$DOCKER_PLATFORM" ]; then
-            docker buildx build \
-                --load \
-                --platform "$DOCKER_PLATFORM" \
-                --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
-                -t "$FILE_SYSTEM_IMAGE" \
-                "$ROOT_DIR/services/file-system"
-        else
-            docker buildx build \
-                --load \
-                --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
-                -t "$FILE_SYSTEM_IMAGE" \
-                "$ROOT_DIR/services/file-system"
-        fi
-    else
-        if [ -n "$DOCKER_PLATFORM" ]; then
-            docker build \
-                --platform "$DOCKER_PLATFORM" \
-                --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
-                -t "$FILE_SYSTEM_IMAGE" \
-                "$ROOT_DIR/services/file-system"
-        else
-            docker build \
-                --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
-                -t "$FILE_SYSTEM_IMAGE" \
-                "$ROOT_DIR/services/file-system"
-        fi
-    fi
+    build_and_retag "$ROOT_DIR/services/file-system" "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_REMOTE_TAG"
+    echo "Tagging $FILE_SYSTEM_LOCAL_TAG as $FILE_SYSTEM_IMAGE ..."
+    docker tag "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_IMAGE"
 fi
 
-export SECRET PERIOD WINDOW PORT SMB_PORT COMPOSE_PROJECT_NAME TLS_CERT_HOST_PATH TLS_KEY_HOST_PATH FILE_SYSTEM_IMAGE GENERAL_PLATFORM
+export SECRET PERIOD WINDOW PORT SMB_PORT COMPOSE_PROJECT_NAME TLS_CERT_HOST_PATH TLS_KEY_HOST_PATH FILE_SYSTEM_IMAGE
 
 confirm_volume_wipe_if_needed
 echo "Starting from scratch: removing compose stack + volumes..."

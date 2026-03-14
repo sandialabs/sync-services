@@ -198,7 +198,7 @@ export class JournalService {
     if (method === 'POST') {
       headers['Content-Type'] = 'application/json';
       if (args && Object.keys(args).length > 0) {
-        body = JSON.stringify({ arguments: args });
+        body = JSON.stringify(args);
       }
     }
 

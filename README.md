@@ -59,13 +59,7 @@ Run the compose smoke with the SMB file-system service:
 
 `local-compose.sh` forces HTTP mode by default for local runs. To allow TLS behavior in local-compose, set `LOCAL_COMPOSE_FORCE_HTTP=0`.
 If you need to temporarily disable the file-system service in local-compose, set `ENABLE_FILE_SYSTEM=0`.
-If your local Docker/Colima setup cannot execute the amd64-only `journal-sdk:1.1.0` base image during the `compose/general` build, use the prebuilt remote image instead:
-
-```bash
-USE_REMOTE_GENERAL=1 ./tests/local-compose.sh smoke
-```
-
-`compose/general` currently runs the journal service as `linux/amd64` by default (`GENERAL_PLATFORM=linux/amd64`) because the published `general` image and its `journal-sdk:1.1.0` base are amd64-only today.
+If you need a local override image for active development, set `FILE_SYSTEM_IMAGE`.
 
 Smoke validation with local Lisp override:
 

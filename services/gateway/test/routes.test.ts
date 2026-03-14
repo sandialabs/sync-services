@@ -107,34 +107,6 @@ test("POST /api/v1/general/get accepts JSON keyword-object payload", async (t) =
   });
 });
 
-test("POST /api/v1/general/get accepts JSON { arguments: { ... } } payload", async (t) => {
-  const mock = createMockJournal();
-  const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
-  t.after(async () => app.close());
-
-  const args = {
-    path: [["*state*", "docs"]],
-    "details?": true,
-  };
-  const res = await app.inject({
-    method: "POST",
-    url: "/api/v1/general/get",
-    headers: {
-      "x-sync-auth": "password",
-      "content-type": "application/json",
-    },
-    payload: { arguments: args },
-  });
-
-  assert.equal(res.statusCode, 200);
-  assert.equal(mock.jsonCalls.length, 1);
-  assert.deepEqual(mock.jsonCalls[0], {
-    functionName: "get",
-    args,
-    authentication: "password",
-  });
-});
-
 test("POST /api/v1/general/get accepts legacy JSON array payload", async (t) => {
   const mock = createMockJournal();
   const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
@@ -204,7 +176,7 @@ test("returns 415 for unsupported content type", async (t) => {
   assert.equal(res.json().error, "unsupported_media_type");
 });
 
-test("returns 400 for invalid JSON arguments wrapper", async (t) => {
+test("returns 400 for JSON arguments wrapper", async (t) => {
   const app = await createApp({ allowAdminRoutes: false });
   t.after(async () => app.close());
 
@@ -288,7 +260,7 @@ test("relays journal semantic error payloads as HTTP errors (JSON mode)", async 
       authorization: "Bearer password",
       "content-type": "application/json",
     },
-    payload: { arguments: { path: [["*state*", "docs"]], "details?": true } },
+    payload: { path: [["*state*", "docs"]], "details?": true },
   });
 
   assert.equal(res.statusCode, 400);

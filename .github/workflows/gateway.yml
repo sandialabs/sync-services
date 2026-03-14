@@ -32,19 +32,29 @@ jobs:
       - name: TypeScript build check
         working-directory: ./services/gateway
         run: npm run build
-      - name: Build versioned Docker image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Resolve version
+        id: version
         run: |
-          version=$( cat ./services/gateway/version.txt )
-          docker build ./services/gateway --tag ghcr.io/${{ github.repository }}/gateway:$version
-      - name: Push versioned Docker image
+          echo "value=$(cat ./services/gateway/version.txt)" >> "$GITHUB_OUTPUT"
+      - name: Build Docker image (PR/non-main validation)
+        if: github.ref != 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/gateway
+          platforms: linux/amd64
+          push: false
+          tags: ghcr.io/${{ github.repository }}/gateway:${{ steps.version.outputs.value }}
+      - name: Build and push multi-arch Docker images
         if: github.ref == 'refs/heads/main'
-        run: |
-          version=$( cat ./services/gateway/version.txt )
-          docker push ghcr.io/${{ github.repository }}/gateway:$version
-      - name: Retag and push latest Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          version=$( cat ./services/gateway/version.txt )
-          docker tag ghcr.io/${{ github.repository }}/gateway:$version \
-                     ghcr.io/${{ github.repository }}/gateway:latest
-          docker push ghcr.io/${{ github.repository }}/gateway:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/gateway
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/gateway:${{ steps.version.outputs.value }}
+            ghcr.io/${{ github.repository }}/gateway:latest

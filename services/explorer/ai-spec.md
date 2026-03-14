@@ -61,23 +61,19 @@ For the purposes of this application, all relevant journals implements a "genera
 
 ## Journal API Call Format
 
-All calls to the synchronic web journal will be a JSON POST request to the user-provided endpoint.
-Request bodies will always have the following shape:
+Explorer talks to the gateway's JSON HTTP API, not directly to the Scheme interpreter.
+For `POST` calls, the request body is the direct JSON argument object for the selected route.
+For example, `/api/v1/general/get` takes:
 
 ```json
 {
-    "function": <function name>,
-    "arguments": {
-        "<keyword-1>": "<value-1>",
-        "<keyword-2>": "<value-2>"
-    },
-    "authentication": <password>,
+    "path": [["*state*", "hello"]],
+    "details?": true
 }
 ```
 
-Arguments can be any valid JSON type and are passed as keyword-style fields.
-If there are no arguments or authentication is not requred, these fields can be omitted.
-On the journal side, the build-in scheme interpreter will convert JSON types into native s7 Scheme representations.
+If authentication is required, it is passed as a bearer token in the HTTP `Authorization` header.
+On the gateway side, JSON values are converted into native s7 Scheme representations.
 There is some nuance to this, but for the purposes of this application, please note the following:
 
 - Arguments that should be s7 Scheme strings, use: `{ "*type/string*": <contents of the string> }`
