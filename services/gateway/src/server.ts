@@ -25,7 +25,7 @@ Operational notes:
 `.trim();
 
 const swaggerUiTheme = `
-.swagger-ui .topbar { background-color: #002b4c; border-bottom: 3px solid #00add0; }
+.swagger-ui .topbar { background-color: #101318; border-bottom: 1px solid #2c3440; }
 .swagger-ui .topbar .topbar-wrapper img { max-height: 36px; width: auto; }
 .swagger-ui .topbar .topbar-wrapper a.link {
   display: inline-flex;
@@ -39,9 +39,10 @@ const swaggerUiTheme = `
   font-size: 1rem;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 .swagger-ui a { color: #0076a9; }
-.swagger-ui .info .title { color: #002b4c; }
+.swagger-ui .info .title { color: #1f2937; }
 .swagger-ui .btn.authorize { border-color: #00add0; color: #00add0; }
 .swagger-ui .btn.authorize svg { fill: #00add0; }
 .swagger-ui .opblock.opblock-get { border-color: #0076a9; background: #f2f9fc; }
@@ -71,6 +72,7 @@ const swaggerUiTheme = `
   .swagger-ui .opblock-body,
   .swagger-ui .responses-inner h4,
   .swagger-ui .responses-inner h5 { background: #1f252b; color: #d4d4d4; }
+  .swagger-ui .topbar { background-color: #101318; border-bottom-color: #2c3440; }
   .swagger-ui .opblock.opblock-get { background: #163041; border-color: #0076a9; }
   .swagger-ui .opblock.opblock-post { background: #16382f; border-color: #008e74; }
   .swagger-ui table thead tr td,

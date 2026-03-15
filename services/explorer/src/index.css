@@ -47,24 +47,24 @@ code {
   --border-color-light: #d0d0d0;
   --hover-bg: #e8e8e8;
   --input-bg: #ffffff;
-  --toolbar-bg: #002b4c;
+  --toolbar-bg: #171a1f;
   --toolbar-text: #ffffff;
   --error-bg: #ffeeee;
 }
 
 /* Dark theme */
 [data-theme="dark"] {
-  --bg-primary: #121212;
-  --bg-secondary: #1e1e1e;
-  --bg-tertiary: #2a2a2a;
-  --bg-elevated: #23262b;
-  --text-primary: #f0f0f0;
-  --text-secondary: #b0b0b0;
-  --border-color: #3a3a3a;
+  --bg-primary: #181a1f;
+  --bg-secondary: #20242b;
+  --bg-tertiary: #2a2f37;
+  --bg-elevated: #232933;
+  --text-primary: #f0f3f8;
+  --text-secondary: #a1abb8;
+  --border-color: #343b46;
   --border-color-light: #4a4a4a;
-  --hover-bg: #333333;
-  --input-bg: #2a2a2a;
-  --toolbar-bg: #1e1e1e;
-  --toolbar-text: #ffffff;
+  --hover-bg: #313844;
+  --input-bg: #262b33;
+  --toolbar-bg: #101318;
+  --toolbar-text: #f3f6fb;
   --error-bg: #3a1a1a;
 }
