@@ -40,6 +40,7 @@ code {
   --bg-primary: #ffffff;
   --bg-secondary: #f8f8f8;
   --bg-tertiary: #f0f0f0;
+  --bg-elevated: #f6f7fa;
   --text-primary: #002b4c;
   --text-secondary: #7d8ea0;
   --border-color: #e0e0e0;
@@ -56,6 +57,7 @@ code {
   --bg-primary: #121212;
   --bg-secondary: #1e1e1e;
   --bg-tertiary: #2a2a2a;
+  --bg-elevated: #23262b;
   --text-primary: #f0f0f0;
   --text-secondary: #b0b0b0;
   --border-color: #3a3a3a;

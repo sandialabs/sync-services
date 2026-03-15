@@ -206,13 +206,6 @@ export class JournalService {
       headers.Authorization = `Bearer ${this.authentication}`;
     }
 
-    console.log('Gateway Request:', {
-      url,
-      method,
-      arguments: args,
-      hasAuth: Boolean(headers.Authorization),
-    });
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -244,8 +237,6 @@ export class JournalService {
         });
         throw this.parseGatewayError(response.status, parsed);
       }
-
-      console.log('Gateway Response:', { path, result: parsed });
       return parsed as T;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -341,6 +332,130 @@ export class JournalService {
    */
   async delete(path: JournalPath): Promise<boolean> {
     return this.set(path, ['nothing']);
+  }
+
+  private requireStatePath(path: JournalPath): string[] {
+    const last = path[path.length - 1];
+    if (!Array.isArray(last) || last[0] !== '*state*') {
+      throw new Error('Expected a state path');
+    }
+    return last;
+  }
+
+  private buildStateChildPath(parentPath: JournalPath, childName: string): JournalPath {
+    const block = this.requireStatePath(parentPath);
+    return [
+      ...parentPath.slice(0, -1),
+      ['*state*', ...block.slice(1), childName],
+    ];
+  }
+
+  private buildStateSiblingPath(path: JournalPath, siblingName: string): JournalPath {
+    const block = this.requireStatePath(path);
+    return [
+      ...path.slice(0, -1),
+      ['*state*', ...block.slice(1, -1), siblingName],
+    ];
+  }
+
+  private buildDirectoryMarkerPath(path: JournalPath): JournalPath {
+    const block = this.requireStatePath(path);
+    return [
+      ...path.slice(0, -1),
+      ['*state*', ...block.slice(1), '*directory*'],
+    ];
+  }
+
+  async getDirectoryEntries(path: JournalPath): Promise<DirectoryEntry[]> {
+    const response = await this.get(path);
+    return JournalService.parseDirectoryEntries(response.content) ?? [];
+  }
+
+  async createFile(parentPath: JournalPath, fileName: string): Promise<boolean> {
+    return this.set(this.buildStateChildPath(parentPath, fileName), { '*type/string*': '' });
+  }
+
+  async createDirectory(parentPath: JournalPath, directoryName: string): Promise<boolean> {
+    const dirPath = this.buildStateChildPath(parentPath, directoryName);
+    return this.set(this.buildDirectoryMarkerPath(dirPath), true);
+  }
+
+  async uploadFile(parentPath: JournalPath, file: File): Promise<boolean> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return this.set(this.buildStateChildPath(parentPath, file.name), {
+      '*type/byte-vector*': hex,
+    });
+  }
+
+  async renameStagePath(path: JournalPath, nextName: string): Promise<boolean> {
+    const targetPath = this.buildStateSiblingPath(path, nextName);
+    await this.copyStagePath(path, targetPath);
+    await this.deleteStagePath(path);
+    return true;
+  }
+
+  async deleteStagePath(path: JournalPath): Promise<boolean> {
+    const response = await this.get(path);
+    const directoryEntries = JournalService.parseDirectoryEntries(response.content);
+    if (directoryEntries) {
+      for (const entry of directoryEntries.filter((item) => item.name !== '*directory*')) {
+        const childPath = this.buildStateChildPath(path, entry.name);
+        await this.deleteStagePath(childPath);
+      }
+      await this.delete(this.buildDirectoryMarkerPath(path));
+      return true;
+    }
+
+    return this.delete(path);
+  }
+
+  async download(path: JournalPath): Promise<{ blob: Blob; filename: string }> {
+    const response = await this.get(path);
+    const stateBlock = this.requireStatePath(path);
+    const fallbackName = stateBlock[stateBlock.length - 1] || 'download';
+
+    if (
+      response.content &&
+      typeof response.content === 'object' &&
+      !Array.isArray(response.content) &&
+      '*type/byte-vector*' in response.content
+    ) {
+      const hex = String(response.content['*type/byte-vector*']);
+      const bytes = new Uint8Array(
+        hex.match(/.{1,2}/g)?.map((chunk) => Number.parseInt(chunk, 16)) ?? [],
+      );
+      return {
+        blob: new Blob([bytes]),
+        filename: fallbackName,
+      };
+    }
+
+    const { value } = JournalService.extractSchemeValue(response.content);
+    const serialized =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    return {
+      blob: new Blob([serialized], { type: 'text/plain;charset=utf-8' }),
+      filename: fallbackName,
+    };
+  }
+
+  private async copyStagePath(sourcePath: JournalPath, targetPath: JournalPath): Promise<void> {
+    const response = await this.get(sourcePath);
+    const directoryEntries = JournalService.parseDirectoryEntries(response.content);
+
+    if (directoryEntries) {
+      await this.set(this.buildDirectoryMarkerPath(targetPath), true);
+      for (const entry of directoryEntries.filter((item) => item.name !== '*directory*')) {
+        await this.copyStagePath(
+          this.buildStateChildPath(sourcePath, entry.name),
+          this.buildStateChildPath(targetPath, entry.name),
+        );
+      }
+      return;
+    }
+
+    await this.set(targetPath, response.content);
   }
 
   /**

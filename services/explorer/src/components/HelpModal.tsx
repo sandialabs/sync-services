@@ -17,58 +17,47 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <section>
             <h3>Overview</h3>
             <p>
-              The Synchronic Web Explorer is a UI for exploring synchronic web journals.
-              It allows you to navigate, read, and write data across a peer-to-peer network.
+              The Synchronic Web Explorer has two modes. Stage is for local editable state.
+              Ledger is for committed, route-based browsing across peers and snapshots.
             </p>
           </section>
 
           <section>
             <h3>Getting Started</h3>
             <ol>
-              <li>Enter your gateway endpoint URL (e.g., http://localhost:8192/api/v1)</li>
-              <li>Enter your authentication password</li>
-              <li>Click "Synchronize" to connect and load the latest data</li>
+              <li>Enter your authentication password.</li>
+              <li>Use Stage to browse and edit local files and folders.</li>
+              <li>Use Ledger to synchronize and browse committed state.</li>
             </ol>
           </section>
 
           <section>
-            <h3>Navigation (Left Pane)</h3>
+            <h3>Stage Mode</h3>
             <ul>
-              <li><strong>state:</strong> Your local journal's data</li>
-              <li><strong>peer:</strong> Connected journals in the network</li>
-              <li>Click folders to expand/collapse</li>
-              <li>Click files to view their content</li>
-              <li>Use action buttons to delete, add files, or pin/unpin data</li>
+              <li>The left tree shows local staged files and folders.</li>
+              <li>Tree rows provide rename and delete actions.</li>
+              <li>Selecting a directory shows its contents and file/folder creation actions.</li>
+              <li>Selecting a file shows a read-only view until you press Edit.</li>
             </ul>
           </section>
 
           <section>
-            <h3>Content (Middle Pane)</h3>
+            <h3>Ledger Mode</h3>
             <ul>
-              <li>View selected documents or directories</li>
-              <li>Edit local documents by clicking "Edit"</li>
-              <li>Save changes with the "Save" button</li>
-              <li>View cryptographic proofs in the Verification tab</li>
+              <li>The route strip defines the current committed view.</li>
+              <li>The first hop is the local journal and additional hops extend through peers.</li>
+              <li>Each hop accepts <code>latest</code> or a negative snapshot index.</li>
+              <li>The tree below the route strip shows the state at the current route tip.</li>
             </ul>
           </section>
 
           <section>
-            <h3>History (Right Pane)</h3>
+            <h3>Content Pane</h3>
             <ul>
-              <li>View different versions of documents</li>
-              <li>Each tab represents a journal in the path</li>
-              <li>Load older versions to see historical data</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3>Peer Management</h3>
-            <p>
-              Use the "Peers" tab in the left pane to:
-            </p>
-            <ul>
-              <li>View connected peers</li>
-              <li>Add new peers by providing their name and endpoint</li>
+              <li>Directories are shown as a simple contents view.</li>
+              <li>Files can be viewed as content in both modes.</li>
+              <li>In Ledger, the content header toggles between content and proof for the current file.</li>
+              <li>Pinning is available from the ledger file header.</li>
             </ul>
           </section>
         </div>

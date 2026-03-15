@@ -1,92 +1,93 @@
 import React, { useState } from 'react';
 import './ToolBar.css';
 import HelpModal from './HelpModal';
+import { ExplorerMode } from '../types';
 
 interface ToolBarProps {
   authentication: string;
-  rootIndex: number;
-  isLoading: boolean;
   error: string | null;
+  isLoading: boolean;
+  mode: ExplorerMode;
   theme: 'light' | 'dark';
   onAuthenticationChange: (authentication: string) => void;
-  onSynchronize: () => void;
+  onModeChange: (mode: ExplorerMode) => void;
   onThemeToggle: () => void;
 }
 
 const ToolBar: React.FC<ToolBarProps> = ({
   authentication,
-  rootIndex,
-  isLoading,
   error,
+  isLoading,
+  mode,
   theme,
   onAuthenticationChange,
-  onSynchronize,
+  onModeChange,
   onThemeToggle,
 }) => {
   const [showHelp, setShowHelp] = useState(false);
 
   const handleLogoClick = () => {
-    // Navigate to home by clearing the hash and reloading
     window.location.href = window.location.pathname + window.location.search;
   };
 
   return (
     <>
       <div className="toolbar">
-        <img 
-          src={process.env.PUBLIC_URL + '/logo.png'}
-          alt="Synchronic Web" 
-          className="toolbar-logo"
-          onClick={handleLogoClick}
-          style={{ cursor: 'pointer' }}
-          title="Return to home"
-        />
+        <div className="toolbar-left">
+          <img
+            src={process.env.PUBLIC_URL + '/logo.png'}
+            alt="Synchronic Web"
+            className="toolbar-logo"
+            onClick={handleLogoClick}
+            title="Return to home"
+          />
+          <div className="mode-switch">
+            <button
+              className={`tab ${mode === 'ledger' ? 'active' : ''}`}
+              onClick={() => onModeChange('ledger')}
+            >
+              Ledger
+            </button>
+            <button
+              className={`tab ${mode === 'stage' ? 'active' : ''}`}
+              onClick={() => onModeChange('stage')}
+            >
+              Stage
+            </button>
+          </div>
+        </div>
 
-        <div className="toolbar-inputs">
+        <div className="toolbar-right">
           <input
             type="password"
-            className="input"
+            className="input toolbar-password"
             placeholder="Authentication password"
             value={authentication}
-            onChange={(e) => onAuthenticationChange(e.target.value)}
+            onChange={(event) => onAuthenticationChange(event.target.value)}
           />
+          <button
+            className="button button-icon"
+            onClick={onThemeToggle}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            {theme === 'light' ? '◐' : '◑'}
+          </button>
+          <button
+            className="button button-icon"
+            onClick={() => setShowHelp(true)}
+            title="Help"
+            aria-label="Help"
+          >
+            ⓘ
+          </button>
         </div>
-
-        <button 
-          className="button button-primary"
-          onClick={onSynchronize}
-          disabled={!authentication || isLoading}
-        >
-          {isLoading ? <span className="loading-spinner" /> : 'Synchronize'}
-        </button>
-
-        <div className="toolbar-status">
-          {rootIndex >= 0 && !isLoading && !error && (
-            <div className="index-display">
-              <span className="index-label">Index:</span>
-              <span className="index-value">{rootIndex}</span>
-            </div>
-          )}
-          {isLoading && <span className="status-loading">Loading...</span>}
-          {error && <span className="status-error">{error}</span>}
-        </div>
-
-        <button 
-          className="button button-icon"
-          onClick={onThemeToggle}
-          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-        >
-          {theme === 'light' ? '🌙' : '☀️'}
-        </button>
-
-        <button 
-          className="button button-icon"
-          onClick={() => setShowHelp(true)}
-          title="Help"
-        >
-          ⓘ
-        </button>
       </div>
+
+      {(error || isLoading) && (
+        <div className={`toolbar-status-line ${error ? 'error' : ''}`}>
+          {error ?? 'Loading...'}
+        </div>
+      )}
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </>

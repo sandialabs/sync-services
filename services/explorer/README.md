@@ -1,98 +1,91 @@
 # Synchronic Web Explorer
 
-A React-based UI for exploring and interacting with synchronic web journals.
+React UI for browsing and editing synchronic web journals through the gateway API.
 
-## Features
+## Current Model
 
-- Navigate hierarchical document structures across peer-to-peer networks
-- View and edit journal content
-- Manage peer connections
-- View document history and versions
-- Verify cryptographic proofs
+The explorer now has two modes:
+
+- `Stage`
+  - local staged files and directories
+  - tree-driven selection
+  - file editing is read-only until `Edit`
+- `Ledger`
+  - committed route-based browsing
+  - route strip across the top
+  - file view toggles between content and proof
+
+There is no dedicated history pane in the current UI. Ledger history is expressed through the route strip and snapshot controls.
 
 ## Development
 
-### Prerequisites
+Prerequisites:
 
 - Node.js 18+
-- npm or yarn
+- npm
 
-### Setup
-
-```bash
-npm install
-```
-
-### Run Development Server
+Run the dev server:
 
 ```bash
+REACT_APP_SYNC_EXPLORER_ENDPOINT=http://127.0.0.1:8192/api/v1 \
+REACT_APP_SYNC_EXPLORER_PASSWORD=password \
 npm start
 ```
 
-The app will be available at http://localhost:3000
+The app is served from `http://localhost:3000/explorer`.
 
-### Run Tests
+## Configuration
 
-```bash
-npm test
-```
+Development-time defaults are read from:
 
-### Build for Production
+- `REACT_APP_SYNC_EXPLORER_ENDPOINT`
+- `REACT_APP_SYNC_EXPLORER_PASSWORD`
 
-```bash
-npm run build
-```
+Container/runtime defaults are read from:
 
-### Docker
+- `SYNC_EXPLORER_ENDPOINT`
+- `SYNC_EXPLORER_PASSWORD`
 
-Build the container:
+## Usage Notes
+
+### Stage
+
+- The left tree shows local staged content.
+- Tree rows expose rename and delete.
+- Selecting a directory exposes:
+  - `+ Document`
+  - `+ Directory`
+  - `Upload File`
+- Selecting a file exposes:
+  - `Edit` / `Save`
+  - `Download`
+
+### Ledger
+
+- The route strip spans the app above the tree and content pane.
+- The leftmost pill synchronizes the latest committed root and shows the current root index.
+- The first hop is always the local/root journal.
+- Each hop accepts:
+  - `latest`
+  - a negative integer snapshot index
+- Extending the route opens an inline peer chooser.
+- Selecting a file exposes:
+  - `Proof` / `Content`
+  - `Pin` / `Unpin`
+
+## Docker
+
+Build:
 
 ```bash
 docker build -t explorer .
 ```
 
-Run the container:
+Run:
 
-```bash
-docker run -p 8080:80 explorer
-```
-
-## Configuration
-
-The explorer connects to a synchronic web gateway endpoint. You'll need:
-
-1. A running journal service (e.g., using the compose/general setup)
-2. The gateway endpoint URL (e.g., http://localhost:8192/api/v1)
-3. The authentication password
-
-### Environment Variables
-
-You can pre-configure the endpoint and password using environment variables:
-
-- `SYNC_EXPLORER_ENDPOINT`: Default gateway endpoint URL
-- `SYNC_EXPLORER_PASSWORD`: Default authentication password
-
-#### Development
-```bash
-REACT_APP_SYNC_EXPLORER_ENDPOINT=http://localhost:8192/api/v1 \
-REACT_APP_SYNC_EXPLORER_PASSWORD=mypassword \
-npm start
-```
-
-#### Docker
 ```bash
 docker run -p 8080:80 \
-  -e SYNC_EXPLORER_ENDPOINT=http://localhost:8192/api/v1 \
-  -e SYNC_EXPLORER_PASSWORD=mypassword \
+  -e SYNC_EXPLORER_ENDPOINT=http://127.0.0.1:8192/api/v1 \
+  -e SYNC_EXPLORER_PASSWORD=password \
   explorer
 ```
-
-## Usage
-
-1. Enter your gateway endpoint and password in the toolbar
-2. Click "Synchronize" to connect
-3. Navigate through the file tree in the left pane
-4. View and edit content in the middle pane
-5. Explore document history in the right pane
-
-For more detailed help, click the "Help" button in the toolbar.

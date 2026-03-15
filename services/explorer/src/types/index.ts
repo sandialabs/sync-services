@@ -13,10 +13,11 @@ export interface AppState {
 }
 
 export type JournalPath = Array<number | string[]>;
+export type ExplorerMode = 'stage' | 'ledger';
 
 export interface JournalResponse<T = any> {
   content: T;
-  'pinned?': JournalPath | null;
+  'pinned?': boolean | JournalPath | null;
   proof: any;
 }
 
@@ -34,6 +35,18 @@ export interface TreeNode {
   children?: TreeNode[];
   isPinned?: boolean;
   isLocal?: boolean;
+}
+
+export interface ExplorerSelection {
+  path: JournalPath;
+  type: 'directory' | 'file';
+}
+
+export interface LedgerHop {
+  key: string;
+  kind: 'local' | 'peer';
+  name: string;
+  snapshot: string;
 }
 
 export interface DocumentContent {
