@@ -27,10 +27,10 @@ const PeerInfoTab: React.FC<PeerInfoTabProps> = ({
     if (!journalService) return;
 
     try {
-      const peerList = await journalService.getPeers();
+      const peerList = await journalService.getBridges();
       setPeers(peerList);
     } catch (error) {
-      console.error('Failed to load peers:', error);
+      console.error('Failed to load bridges:', error);
       setPeers([]);
     }
   };
@@ -40,17 +40,17 @@ const PeerInfoTab: React.FC<PeerInfoTabProps> = ({
 
     setIsLoading(true);
     try {
-      const success = await journalService.addPeer(newPeerName, newPeerEndpoint);
+      const success = await journalService.addBridge(newPeerName, newPeerEndpoint);
       if (success) {
         setNewPeerName('');
         setNewPeerEndpoint('');
         await loadPeers();
       } else {
-        alert('Failed to add peer: Operation returned false');
+        alert('Failed to add bridge: Operation returned false');
       }
     } catch (error) {
-      console.error('Failed to add peer:', error);
-      alert(`Failed to add peer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Failed to add bridge:', error);
+      alert(`Failed to add bridge: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -70,18 +70,18 @@ const PeerInfoTab: React.FC<PeerInfoTabProps> = ({
       </div>
 
       <form className="add-peer-form" onSubmit={(e) => { e.preventDefault(); handleAddPeer(); }}>
-        <h3>Add New Peer</h3>
+        <h3>Add New Bridge</h3>
         <input
           type="text"
           className="input"
-          placeholder="Peer name"
+          placeholder="Bridge name"
           value={newPeerName}
           onChange={(e) => setNewPeerName(e.target.value)}
         />
         <input
           type="text"
           className="input"
-          placeholder="Peer endpoint URL"
+          placeholder="Bridge endpoint URL"
           value={newPeerEndpoint}
           onChange={(e) => setNewPeerEndpoint(e.target.value)}
         />
@@ -90,7 +90,7 @@ const PeerInfoTab: React.FC<PeerInfoTabProps> = ({
           className="button button-primary"
           disabled={!newPeerName || !newPeerEndpoint || isLoading}
         >
-          {isLoading ? 'Adding...' : 'Add Peer'}
+          {isLoading ? 'Adding...' : 'Add Bridge'}
         </button>
       </form>
     </div>

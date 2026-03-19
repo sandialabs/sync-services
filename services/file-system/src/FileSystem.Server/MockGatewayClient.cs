@@ -3,17 +3,23 @@ using System.Text.Json.Nodes;
 
 namespace FileSystem.Server;
 
-public sealed record GatewayGetRequest(IReadOnlyList<object> Path, bool Details);
+public sealed record GatewayGetRequest(IReadOnlyList<object> Path, bool Pinned, bool Proof);
 
 public sealed record GatewaySetRequest(IReadOnlyList<object> Path, JsonNode Content);
 
 public sealed record GatewayPinRequest(IReadOnlyList<object> Path);
 
-public interface IGeneralGatewayClient
+public sealed record GatewayBatchRequest(IReadOnlyList<GatewayBatchOperation> Requests);
+
+public sealed record GatewayBatchOperation(string Function, JsonObject? Arguments);
+
+public interface IGeneralInterfaceClient
 {
     Task<JsonNode?> GetAsync(GatewayGetRequest request, CancellationToken cancellationToken);
 
     Task<JsonNode?> SetAsync(GatewaySetRequest request, CancellationToken cancellationToken);
+
+    Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken);
 
     Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken);
 
@@ -21,10 +27,10 @@ public interface IGeneralGatewayClient
 
     Task<long> SizeAsync(CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<string>> PeersAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken);
 }
 
-public sealed class MockGatewayClient : IGeneralGatewayClient
+public sealed class MockGatewayClient : IGeneralInterfaceClient
 {
     private readonly string _fixturePath;
     private readonly ILogger _logger;
@@ -72,8 +78,12 @@ public sealed class MockGatewayClient : IGeneralGatewayClient
                 throw new FileNotFoundException($"Gateway path not found: {sharePath}");
             }
 
-            var value = JsonFileSystemLoader.BuildGatewayValue(entry, entries, details: request.Details);
-            _logger.LogDebug("mock gateway get path={SharePath} details={Details}", sharePath, request.Details);
+            var value = JsonFileSystemLoader.BuildGatewayValue(entry, entries, details: request.Pinned || request.Proof);
+            _logger.LogDebug(
+                "mock gateway get path={SharePath} pinned={Pinned} proof={Proof}",
+                sharePath,
+                request.Pinned,
+                request.Proof);
             return Task.FromResult<JsonNode?>(value);
         }
     }
@@ -98,6 +108,65 @@ public sealed class MockGatewayClient : IGeneralGatewayClient
 
             _logger.LogDebug("mock gateway set! path={SharePath}", sharePath);
             return Task.FromResult<JsonNode?>(request.Content.DeepClone());
+        }
+    }
+
+    public Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            JsonArray? output = null;
+            foreach (var operation in request.Requests)
+            {
+                switch (operation.Function)
+                {
+                    case "get":
+                    {
+                        var arguments = operation.Arguments
+                            ?? throw new InvalidDataException("Batch get requires arguments.");
+                        var pathNode = arguments["path"]
+                            ?? throw new InvalidDataException("Batch get requires path.");
+                        var pinned = arguments["pinned?"]?.GetValue<bool>() ?? false;
+                        var proof = arguments["proof?"]?.GetValue<bool>() ?? false;
+
+                        var path = JsonSerializer.Deserialize<object[]>(pathNode.ToJsonString())
+                            ?? throw new InvalidDataException("Batch get path is invalid.");
+                        var result = GetAsync(
+                            new GatewayGetRequest(path, pinned, proof),
+                            cancellationToken).GetAwaiter().GetResult();
+
+                        output ??= new JsonArray();
+                        output.Add(result?.DeepClone());
+                        break;
+                    }
+                    case "set!":
+                    {
+                        var arguments = operation.Arguments
+                            ?? throw new InvalidDataException("Batch set! requires arguments.");
+                        var pathNode = arguments["path"]
+                            ?? throw new InvalidDataException("Batch set! requires path.");
+                        var contentNode = arguments["value"]
+                            ?? throw new InvalidDataException("Batch set! requires value.");
+
+                        var path = JsonSerializer.Deserialize<object[]>(pathNode.ToJsonString())
+                            ?? throw new InvalidDataException("Batch set! path is invalid.");
+                        var result = SetAsync(
+                            new GatewaySetRequest(path, contentNode.DeepClone()),
+                            cancellationToken).GetAwaiter().GetResult();
+
+                        output ??= new JsonArray();
+                        output.Add(result?.DeepClone());
+                        break;
+                    }
+                    default:
+                        throw new NotSupportedException($"Mock batch does not support function '{operation.Function}'.");
+                }
+            }
+
+            _logger.LogDebug("mock gateway general-batch requests={Count}", request.Requests.Count);
+            return Task.FromResult<JsonNode?>(output ?? new JsonArray());
         }
     }
 
@@ -133,21 +202,21 @@ public sealed class MockGatewayClient : IGeneralGatewayClient
         }
     }
 
-    public Task<IReadOnlyList<string>> PeersAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
     {
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var peers = JsonFileSystemLoader.LoadEntriesFromFile(_fixturePath)
+            var bridges = JsonFileSystemLoader.LoadEntriesFromFile(_fixturePath)
                 .Select(entry => entry.SharePath.Trim('\\').Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 .Where(segments => segments.Length >= 3 &&
                     string.Equals(segments[0], "ledger", StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(segments[1], "peer", StringComparison.OrdinalIgnoreCase))
+                    string.Equals(segments[1], "bridge", StringComparison.OrdinalIgnoreCase))
                 .Select(segments => segments[2])
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            return Task.FromResult<IReadOnlyList<string>>(peers);
+            return Task.FromResult<IReadOnlyList<string>>(bridges);
         }
     }
 
@@ -182,7 +251,7 @@ public sealed class MockGatewayClient : IGeneralGatewayClient
             }
         }
 
-        var normalizedPath = NormalizeCurrentPeerPath(path);
+        var normalizedPath = NormalizeCurrentBridgePath(path);
         if (!ReferenceEquals(normalizedPath, path))
         {
             var normalizedCompiled = CompileSharePath(normalizedPath);
@@ -240,7 +309,7 @@ public sealed class MockGatewayClient : IGeneralGatewayClient
         return string.Equals((string)stateBlock[0], "*state*", StringComparison.Ordinal);
     }
 
-    private static IReadOnlyList<object> NormalizeCurrentPeerPath(IReadOnlyList<object> path)
+    private static IReadOnlyList<object> NormalizeCurrentBridgePath(IReadOnlyList<object> path)
     {
         if (path.Count == 0)
         {
@@ -257,7 +326,7 @@ public sealed class MockGatewayClient : IGeneralGatewayClient
                 index > 0 &&
                 path[index - 1] is object[] previousBlock &&
                 previousBlock.Length >= 3 &&
-                string.Equals(previousBlock[0] as string, "*peer*", StringComparison.Ordinal) &&
+                string.Equals(previousBlock[0] as string, "*bridge*", StringComparison.Ordinal) &&
                 string.Equals(previousBlock[2] as string, "chain", StringComparison.Ordinal))
             {
                 changed = true;

@@ -66,7 +66,7 @@ const buildLedgerFragment = (
   const segments = ['ledger', 'previous', getLedgerRootSnapshot(ledgerHops[0], rootIndex)];
 
   for (const hop of ledgerHops.slice(1)) {
-    segments.push('peer', hop.name);
+    segments.push('bridge', hop.name);
     const trimmed = hop.snapshot.trim().toLowerCase();
     if (trimmed !== '' && trimmed !== 'latest') {
       segments.push('previous', hop.snapshot);
@@ -152,11 +152,11 @@ const parseLedgerFragment = (segments: string[], isDirectory: boolean) => {
       };
     }
 
-    if (segment !== 'peer' || cursor + 1 >= segments.length) {
+    if (segment !== 'bridge' || cursor + 1 >= segments.length) {
       return null;
     }
 
-    const peerName = segments[cursor + 1];
+    const bridgeName = segments[cursor + 1];
     cursor += 2;
     let snapshot = 'latest';
     if (segments[cursor] === 'previous' && cursor + 1 < segments.length) {
@@ -165,12 +165,12 @@ const parseLedgerFragment = (segments: string[], isDirectory: boolean) => {
     }
 
     hops.push({
-      key: `${peerName}-${hops.length}`,
-      kind: 'peer',
-      name: peerName,
+      key: `${bridgeName}-${hops.length}`,
+      kind: 'bridge',
+      name: bridgeName,
       snapshot,
     });
-    path.push(['*peer*', peerName, 'chain']);
+    path.push(['*bridge*', bridgeName, 'chain']);
     path.push(snapshot === 'latest' ? -1 : Number.parseInt(snapshot, 10));
   }
 

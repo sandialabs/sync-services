@@ -1,7 +1,6 @@
 # Synchronic Web Ledger Compose Network
 
-This compose stack runs one journal with gateway, explorer, workbench, and the dedicated `router` service.
-It can also run the optional `file-system` SMB service through the `filesystem` compose profile.
+This compose stack runs one journal with gateway, explorer, workbench, router, and the `file-system` SMB service.
 
 ## Requirements
 
@@ -20,8 +19,11 @@ It can also run the optional `file-system` SMB service through the `filesystem` 
 - `ACME_WEBROOT_HOST_PATH` (default `./acme-challenge`): host directory mounted at `/var/www/acme-challenge` for HTTP-01 challenge files
 - `TLS_CERT_FILE` (default `/etc/nginx/certs/tls.crt`): in-container certificate path used by router
 - `TLS_KEY_FILE` (default `/etc/nginx/certs/tls.key`): in-container key path used by router
-- `SMB_PORT` (default `445`): host port exposed by the optional `file-system` service when the `filesystem` profile is enabled
+- `SMB_PORT` (default `445`): host port exposed by the `file-system` service
 - `FILE_SYSTEM_IMAGE` (default `ghcr.io/sandialabs/sync-services/file-system:1.1.0`): image used by the optional `file-system` service
+- `SYNC_FS_Backend` (default `http-journal-stage`): file-system backend override
+- `SYNC_FS_JournalJsonUrl` (default `http://journal/interface/json`): direct journal JSON endpoint used by the default file-system backend
+- `SYNC_FS_GatewayBaseUrl` (default `http://gateway/api/v1`): gateway endpoint used only when gateway-backed file-system modes are selected
 
 Gateway note:
 - `ALLOW_ADMIN_ROUTES` is enabled by default in `compose/general/docker-compose.yml`.
@@ -82,13 +84,6 @@ The local compose helper enables the SMB file-system service by default:
 ./tests/local-compose.sh smoke
 ```
 
-If you need to disable it temporarily:
-
-```bash
-ENABLE_FILE_SYSTEM=0 ./tests/local-compose.sh up
-ENABLE_FILE_SYSTEM=0 ./tests/local-compose.sh smoke
-```
-
 To override the published file-system image during local development:
 
 ```bash
@@ -113,6 +108,7 @@ LOCAL_LISP_DIRECTORY=/absolute/path/to/lisp ./tests/local-compose.sh smoke
 - `tree.scm`
 - `configuration.scm`
 - `ledger.scm`
+- `general.scm`
 
 ## Manual Teardown
 

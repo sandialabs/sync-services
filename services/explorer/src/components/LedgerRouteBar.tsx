@@ -100,7 +100,7 @@ const LedgerRouteBar: React.FC<LedgerRouteBarProps> = ({
       <div className="route-control-rail">
         {pickerOpen ? (
           <div className="peer-picker-shell">
-            <button className="route-action" title="Exit peer selection" onClick={onClosePeerPicker}>
+            <button className="route-action" title="Exit bridge selection" onClick={onClosePeerPicker}>
               ×
             </button>
             <div className="peer-rail">
@@ -116,7 +116,7 @@ const LedgerRouteBar: React.FC<LedgerRouteBarProps> = ({
                     </button>
                   ))
                 ) : (
-                  <div className="peer-rail-empty">No peers available</div>
+                  <div className="peer-rail-empty">No bridges available</div>
                 )}
               </div>
             </div>
@@ -131,7 +131,7 @@ const LedgerRouteBar: React.FC<LedgerRouteBarProps> = ({
             >
               ←
             </button>
-            <button className="route-action ghost" title="Extend route to a peer" onClick={onOpenPeerPicker}>
+            <button className="route-action ghost" title="Extend route to a bridge" onClick={onOpenPeerPicker}>
               →
             </button>
           </>

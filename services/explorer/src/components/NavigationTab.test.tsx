@@ -48,7 +48,7 @@ describe('NavigationTab', () => {
 
     await waitFor(() => {
       expect(screen.getByText('state')).toBeInTheDocument();
-      expect(screen.getByText('peer')).toBeInTheDocument();
+      expect(screen.getByText('bridge')).toBeInTheDocument();
     });
   });
 

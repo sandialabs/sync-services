@@ -130,6 +130,16 @@ public sealed class StaticSmbWorker : BackgroundService
             return new GatewayProjectionFileSystem("syncfs-http-gateway-stage", new HttpGatewayClient(_options), enableStageWrites: true);
         }
 
+        if (string.Equals(_options.Backend, "http-journal-readonly", StringComparison.OrdinalIgnoreCase))
+        {
+            return new GatewayProjectionFileSystem("syncfs-http-journal-readonly", new HttpJournalClient(_options));
+        }
+
+        if (string.Equals(_options.Backend, "http-journal-stage", StringComparison.OrdinalIgnoreCase))
+        {
+            return new GatewayProjectionFileSystem("syncfs-http-journal-stage", new HttpJournalClient(_options), enableStageWrites: true);
+        }
+
         if (string.Equals(_options.Backend, "memory", StringComparison.OrdinalIgnoreCase))
         {
             var memory = new InMemoryFileSystem("syncfs-memory");

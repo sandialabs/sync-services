@@ -42,6 +42,7 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 - Predictability: error responses should be normalized and typed.
 - Evolvability: changes go through versioned routes (`/api/v1/...`).
 - Observability: structured logs, request IDs, and upstream timing should be first-class.
+- Metrics emission: the gateway should expose Prometheus-format metrics directly from the process.
 
 ## Proposed Route Surface (Draft v1)
 
@@ -51,19 +52,19 @@ General namespace: `/api/v1/general`
 
 - `GET /api/v1/general/size` (public)
 - `GET /api/v1/general/information` (public)
-- `GET /api/v1/general/peers` (restricted)
+- `GET /api/v1/general/bridges` (restricted)
 - `POST /api/v1/general/get`
 - `POST /api/v1/general/set` -> journal `set!`
 - `POST /api/v1/general/pin` -> journal `pin!`
 - `POST /api/v1/general/unpin` -> journal `unpin!`
 - `POST /api/v1/general/synchronize`
 - `POST /api/v1/general/resolve`
-- `POST /api/v1/general/peer` -> journal `peer!`
-- `POST /api/v1/general/general-peer` -> journal `general-peer!`
+- `POST /api/v1/general/bridge` -> journal `bridge!`
+- `POST /api/v1/general/general-bridge` -> journal `general-bridge!`
 - `POST /api/v1/general/configuration`
 - `POST /api/v1/general/step-generate`
 - `POST /api/v1/general/step-chain` -> journal `step-chain!`
-- `POST /api/v1/general/step-peer` -> journal `step-peer!`
+- `POST /api/v1/general/step-bridge` -> journal `step-bridge!`
 - `POST /api/v1/general/set-secret` -> journal `*secret*`
 
 Control namespace: `/api/v1/control` (admin only, disable by default)
@@ -82,10 +83,10 @@ Gateway route aliases are URL-safe and map to canonical journal function names:
 - `set` -> `set!`
 - `pin` -> `pin!`
 - `unpin` -> `unpin!`
-- `peer` -> `peer!`
-- `general-peer` -> `general-peer!`
+- `bridge` -> `bridge!`
+- `general-bridge` -> `general-bridge!`
 - `step-chain` -> `step-chain!`
-- `step-peer` -> `step-peer!`
+- `step-bridge` -> `step-bridge!`
 - `general/set-secret` -> `*secret*`
 - `control/eval` -> `*eval*`
 - `control/call` -> `*call*`
@@ -113,7 +114,7 @@ This keeps authentication/function routing consistent while allowing both JSON a
 Gateway request -> journal request translation responsibilities:
 
 - HTTP method + route + params/body -> `{ function, arguments, authentication }` (JSON mode) or full Lisp expression (Lisp mode)
-- Path normalization and validation (including `*state*`/peer path conventions).
+- Path normalization and validation (including `*state*`/bridge path conventions).
 - Type normalization for Lisp-sensitive values (`*type/string*`, etc.) when needed.
 - Upstream error mapping into consistent HTTP status + error body.
 
@@ -135,6 +136,12 @@ Gateway request -> journal request translation responsibilities:
 - Configurable upstream journal URL(s) via environment variables.
 - Timeouts, retries (bounded), and upstream circuit-breaker behavior.
 - Structured logs with request ID propagation.
+- Public metrics endpoint:
+  - `GET /metrics`
+- Emitted metrics should include:
+  - default Node.js/process metrics
+  - gateway request totals, durations, and in-flight count
+  - upstream journal request totals and durations
 - Health endpoints:
   - `GET /healthz` (liveness)
   - `GET /readyz` (readiness + upstream check)
@@ -148,7 +155,7 @@ Gateway request -> journal request translation responsibilities:
 
 ## Open Decisions
 
-1. Whether both `peer!` and `general-peer!` should be exposed in v1 or one should be preferred.
+1. Whether both `bridge!` and `general-bridge!` should be exposed in v1 or one should be preferred.
 2. Whether control routes should ship in the first release or remain feature-flagged.
 3. Whether gateway should support fan-out to multiple journals or a single upstream per deployment.
 

@@ -7,8 +7,8 @@ import {
 describe('projectedFragments', () => {
   const ledgerHops: LedgerHop[] = [
     { key: 'local', kind: 'local', name: 'Self', snapshot: '42' },
-    { key: 'alice-1', kind: 'peer', name: 'alice', snapshot: 'latest' },
-    { key: 'bob-2', kind: 'peer', name: 'bob', snapshot: '-3' },
+    { key: 'alice-1', kind: 'bridge', name: 'alice', snapshot: 'latest' },
+    { key: 'bob-2', kind: 'bridge', name: 'bob', snapshot: '-3' },
   ];
 
   it('builds a stage fragment with url-safe encoding', () => {
@@ -29,9 +29,9 @@ describe('projectedFragments', () => {
     expect(hash).toBe('#stage/docs/hello%20world.txt');
   });
 
-  it('round-trips a ledger fragment with peers and history', () => {
+  it('round-trips a ledger fragment with bridges and history', () => {
     const ledgerSelection: ExplorerSelection = {
-      path: [42, ['*peer*', 'alice', 'chain'], -1, ['*peer*', 'bob', 'chain'], -3, ['*state*', 'docs', 'readme.md']],
+      path: [42, ['*bridge*', 'alice', 'chain'], -1, ['*bridge*', 'bob', 'chain'], -3, ['*state*', 'docs', 'readme.md']],
       type: 'file',
     };
 
@@ -39,19 +39,19 @@ describe('projectedFragments', () => {
       mode: 'ledger',
       stageSelection: null,
       ledgerSelection,
-      ledgerRootPath: [42, ['*peer*', 'alice', 'chain'], -1, ['*peer*', 'bob', 'chain'], -3, ['*state*']],
+      ledgerRootPath: [42, ['*bridge*', 'alice', 'chain'], -1, ['*bridge*', 'bob', 'chain'], -3, ['*state*']],
       ledgerHops,
       rootIndex: 42,
     });
 
-    expect(hash).toBe('#ledger/previous/42/peer/alice/peer/bob/previous/-3/state/docs/readme.md');
+    expect(hash).toBe('#ledger/previous/42/bridge/alice/bridge/bob/previous/-3/state/docs/readme.md');
 
     expect(parseFragmentHash(hash)).toEqual({
       mode: 'ledger',
       ledgerHops: [
         { key: 'local', kind: 'local', name: 'Self', snapshot: '42' },
-        { key: 'alice-1', kind: 'peer', name: 'alice', snapshot: 'latest' },
-        { key: 'bob-2', kind: 'peer', name: 'bob', snapshot: '-3' },
+        { key: 'alice-1', kind: 'bridge', name: 'alice', snapshot: 'latest' },
+        { key: 'bob-2', kind: 'bridge', name: 'bob', snapshot: '-3' },
       ],
       selection: ledgerSelection,
     });

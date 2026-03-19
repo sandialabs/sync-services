@@ -259,14 +259,14 @@ export class JournalService {
   }
 
   /**
-   * Add a new peer
+   * Add a new bridge
    */
-  async addPeer(name: string, endpoint: string): Promise<boolean> {
+  async addBridge(name: string, endpoint: string): Promise<boolean> {
     const nameStr: SchemeString = { '*type/string*': name };
     const endpointStr: SchemeString = { '*type/string*': endpoint };
     return this.request<boolean>({
       method: 'POST',
-      path: '/general/general-peer',
+      path: '/general/general-bridge',
       args: {
         name: nameStr,
         interface: endpointStr,
@@ -294,13 +294,18 @@ export class JournalService {
   /**
    * Get the existing value at the path alongside metadata
    */
-  async get(path: JournalPath): Promise<JournalResponse> {
+  async get(
+    path: JournalPath,
+    options: { pinned?: boolean; proof?: boolean } = {},
+  ): Promise<JournalResponse> {
+    const { pinned = true, proof = true } = options;
     return this.request<JournalResponse>({
       method: 'POST',
       path: '/general/get',
       args: {
         path,
-        'details?': true,
+        'pinned?': pinned,
+        'proof?': proof,
       },
     });
   }
@@ -459,17 +464,25 @@ export class JournalService {
   }
 
   /**
-   * Get peer information
+   * Get bridge information
    */
-  async getPeers(): Promise<PeerInfo[]> {
-    const peers = await this.request<unknown[]>({
+  async getBridges(): Promise<PeerInfo[]> {
+    const bridges = await this.request<unknown[]>({
       method: 'GET',
-      path: '/general/peers',
+      path: '/general/bridges',
     });
-    if (!Array.isArray(peers)) return [];
-    return peers.map((peer) => {
-      const { value } = JournalService.extractSchemeValue(peer);
+    if (!Array.isArray(bridges)) return [];
+    return bridges.map((bridge) => {
+      const { value } = JournalService.extractSchemeValue(bridge);
       return { name: typeof value === 'string' ? value : String(value), endpoint: '' };
     });
+  }
+
+  async addPeer(name: string, endpoint: string): Promise<boolean> {
+    return this.addBridge(name, endpoint);
+  }
+
+  async getPeers(): Promise<PeerInfo[]> {
+    return this.getBridges();
   }
 }

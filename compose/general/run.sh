@@ -9,6 +9,10 @@ if [ -z "$WINDOW" ]; then
     WINDOW="#f"
 fi
 
+if [ -z "$JOURNAL_UPDATE" ]; then
+    JOURNAL_UPDATE=0
+fi
+
 resolve_lisp_file() {
     filename="$1"
 
@@ -29,16 +33,29 @@ resolve_lisp_file() {
     echo "$filename"
 }
 
-control=$( cat "$(resolve_lisp_file control.scm)" )
-standard=$( cat "$(resolve_lisp_file standard.scm)" )
-chain=$( cat "$(resolve_lisp_file log-chain.scm)" )
-tree=$( cat "$(resolve_lisp_file tree.scm)" )
-configuration=$( cat "$(resolve_lisp_file configuration.scm)" )
-ledger=$( cat "$(resolve_lisp_file ledger.scm)" )
+run_startup() {
+    clear_flag="$1"
+    control=$( cat "$(resolve_lisp_file control.scm)" )
+    standard=$( cat "$(resolve_lisp_file standard.scm)" )
+    chain=$( cat "$(resolve_lisp_file log-chain.scm)" )
+    tree=$( cat "$(resolve_lisp_file tree.scm)" )
+    configuration=$( cat "$(resolve_lisp_file configuration.scm)" )
+    ledger=$( cat "$(resolve_lisp_file ledger.scm)" )
+    general=$( cat "$(resolve_lisp_file general.scm)" )
+    expr="($general $clear_flag \"$SECRET\" \"$SECRET\" $WINDOW $control '$standard '$chain '$tree '$configuration '$ledger)"
+    if [ "$clear_flag" = "#f" ]; then
+        expr="(*eval* \"$SECRET\" '$expr)"
+    fi
+    RUST_LOG=$RUST_LOG ./journal-sdk -e "$expr" -d database
+}
 
-interface=$( cat interface.scm )
+if [ -d database ] && [ -n "$(find database -mindepth 1 -print -quit 2>/dev/null)" ]; then
+    if [ "$JOURNAL_UPDATE" = "1" ]; then
+        run_startup "#f"
+    fi
+else
+    run_startup "#t"
+fi
 
-boot="($interface \"$SECRET\" \"$SECRET\" $WINDOW $control '$standard '$chain '$tree '$configuration '$ledger)"
 step="((function *step*) (authentication \"$SECRET\"))"
-
-RUST_LOG=$RUST_LOG ./journal-sdk -b "$boot" -p 80 -c $PERIOD -s "$step" -d database
+RUST_LOG=$RUST_LOG ./journal-sdk -p 80 -c $PERIOD -s "$step" -d database

@@ -20,8 +20,8 @@ describe('encodePathToHash', () => {
     expect(result).toBe(encodeURIComponent(JSON.stringify(path)));
   });
 
-  it('should encode a complex peer path', () => {
-    const path = [-1, ['*peer*', 'alice', 'chain'], -1, ['*state*', 'data']];
+  it('should encode a complex bridge path', () => {
+    const path = [-1, ['*bridge*', 'alice', 'chain'], -1, ['*state*', 'data']];
     const result = encodePathToHash(path);
     expect(result).toBe(encodeURIComponent(JSON.stringify(path)));
   });
@@ -72,8 +72,8 @@ describe('generateExpandedNodesFromPath', () => {
     expect(result.has(JSON.stringify([-1, ['*state*', 'test']]))).toBe(true);
   });
 
-  it('should generate expanded nodes for a peer path', () => {
-    const path = [-1, ['*peer*', 'alice', 'chain'], -1, ['*state*']];
+  it('should generate expanded nodes for a bridge path', () => {
+    const path = [-1, ['*bridge*', 'alice', 'chain'], -1, ['*state*']];
     const result = generateExpandedNodesFromPath(path);
     expect(result.size).toBe(4);
   });
@@ -92,10 +92,10 @@ describe('getBasePath', () => {
     expect(result).toBe(JSON.stringify([['*state*', 'test']]));
   });
 
-  it('should extract base path from peer path', () => {
-    const path = [-1, ['*peer*', 'alice', 'chain'], -2, ['*state*', 'data']];
+  it('should extract base path from bridge path', () => {
+    const path = [-1, ['*bridge*', 'alice', 'chain'], -2, ['*state*', 'data']];
     const result = getBasePath(path);
-    expect(result).toBe(JSON.stringify([['*peer*', 'alice', 'chain'], ['*state*', 'data']]));
+    expect(result).toBe(JSON.stringify([['*bridge*', 'alice', 'chain'], ['*state*', 'data']]));
   });
 });
 
@@ -112,10 +112,10 @@ describe('buildVersionPath', () => {
     expect(result).toEqual([-2, ['*state*', 'test']]);
   });
 
-  it('should update peer version for tab > 0', () => {
-    const path = [-1, ['*peer*', 'alice', 'chain'], -1, ['*state*', 'data']];
+  it('should update bridge version for tab > 0', () => {
+    const path = [-1, ['*bridge*', 'alice', 'chain'], -1, ['*state*', 'data']];
     const result = buildVersionPath(path, 1, -4);
-    expect(result).toEqual([-1, ['*peer*', 'alice', 'chain'], -4, ['*state*', 'data']]);
+    expect(result).toEqual([-1, ['*bridge*', 'alice', 'chain'], -4, ['*state*', 'data']]);
   });
 });
 
@@ -132,13 +132,13 @@ describe('getVersionAtTab', () => {
     expect(result).toBeNull();
   });
 
-  it('should return peer version for tab > 0', () => {
-    const path = [-1, ['*peer*', 'alice', 'chain'], -4, ['*state*', 'data']];
+  it('should return bridge version for tab > 0', () => {
+    const path = [-1, ['*bridge*', 'alice', 'chain'], -4, ['*state*', 'data']];
     const result = getVersionAtTab(path, 1);
     expect(result).toBe(-4);
   });
 
-  it('should return null if tab index exceeds peer count', () => {
+  it('should return null if tab index exceeds bridge count', () => {
     const path = [-1, ['*state*', 'test']];
     const result = getVersionAtTab(path, 1);
     expect(result).toBeNull();

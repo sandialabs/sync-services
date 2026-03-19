@@ -18,7 +18,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             <h3>Overview</h3>
             <p>
               The Synchronic Web Explorer has two modes. Stage is for local editable state.
-              Ledger is for committed, route-based browsing across peers and snapshots.
+              Ledger is for committed, route-based browsing across bridges and snapshots.
             </p>
           </section>
 
@@ -45,7 +45,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             <h3>Ledger Mode</h3>
             <ul>
               <li>The route strip defines the current committed view.</li>
-              <li>The first hop is the local journal and additional hops extend through peers.</li>
+              <li>The first hop is the local journal and additional hops extend through bridges.</li>
               <li>Each hop accepts <code>latest</code> or a negative snapshot index.</li>
               <li>The tree below the route strip shows the state at the current route tip.</li>
             </ul>

@@ -18,7 +18,7 @@ const LeftPane: React.FC<LeftPaneProps> = ({
   onPathSelect,
   onExpandedNodesChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<'navigation' | 'peers'>('navigation');
+  const [activeTab, setActiveTab] = useState<'navigation' | 'bridges'>('navigation');
 
   return (
     <div className="pane left-pane">
@@ -30,10 +30,10 @@ const LeftPane: React.FC<LeftPaneProps> = ({
           Navigation
         </button>
         <button
-          className={`tab ${activeTab === 'peers' ? 'active' : ''}`}
-          onClick={() => setActiveTab('peers')}
+          className={`tab ${activeTab === 'bridges' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bridges')}
         >
-          Peers
+          Bridges
         </button>
       </div>
       <div className="tab-content">

@@ -8,7 +8,7 @@ import { JournalService } from './services/JournalService';
 import { AppState, ExplorerMode, ExplorerSelection, JournalPath, LedgerHop, TreeNode } from './types';
 import {
   LEDGER_LATEST,
-  buildLedgerPeersPath,
+  buildLedgerBridgesPath,
   buildLedgerStateRootPath,
   normalizeSnapshotInput,
   stepSnapshotValue,
@@ -460,8 +460,8 @@ const App: React.FC = () => {
       return;
     }
     try {
-      const peersPath = buildLedgerPeersPath(ledgerHops, appState.rootIndex);
-      const entries = await journalService.getDirectoryEntries(peersPath);
+      const bridgesPath = buildLedgerBridgesPath(ledgerHops, appState.rootIndex);
+      const entries = await journalService.getDirectoryEntries(bridgesPath);
       setLedgerPeerChoices(
         entries
           .filter((entry) => entry.name !== '*directory*')
@@ -471,7 +471,7 @@ const App: React.FC = () => {
     } catch (error) {
       setAppState((prev) => ({
         ...prev,
-        error: `Peer lookup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Bridge lookup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       }));
     }
   };
@@ -481,7 +481,7 @@ const App: React.FC = () => {
       ...prev,
       {
         key: `${peerName}-${prev.length}`,
-        kind: 'peer',
+        kind: 'bridge',
         name: peerName,
         snapshot: LEDGER_LATEST,
       },

@@ -13,14 +13,6 @@ location /interface {
     proxy_pass http://${JOURNAL_HOST}/interface;
 }
 
-location = /gateway {
-    return 301 /gateway/;
-}
-
-location /gateway/ {
-    proxy_pass http://${GATEWAY_HOST}/;
-}
-
 location /api/ {
     proxy_pass http://${GATEWAY_HOST};
 }
@@ -29,16 +21,16 @@ location = /docs {
     proxy_pass http://${GATEWAY_HOST}/docs;
 }
 
-location = /api/v1/docs {
-    proxy_pass http://${GATEWAY_HOST}/api/v1/docs;
-}
-
 location = /healthz {
     proxy_pass http://${GATEWAY_HOST}/healthz;
 }
 
 location = /readyz {
     proxy_pass http://${GATEWAY_HOST}/readyz;
+}
+
+location = /metrics {
+    proxy_pass http://${GATEWAY_HOST}/metrics;
 }
 
 location /explorer {

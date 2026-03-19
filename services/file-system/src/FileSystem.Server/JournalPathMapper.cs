@@ -41,7 +41,7 @@ public static class JournalPathMapper
                 throw new InvalidDataException("Ledger fixture path is incomplete.");
             }
 
-            if (IsPeerBlock(parts[cursor]))
+            if (IsBridgeBlock(parts[cursor]))
             {
                 segments.AddRange(CompileLedgerNodePath(parts, cursor));
                 return JoinProjectedPath(segments);
@@ -182,10 +182,10 @@ public static class JournalPathMapper
                 continue;
             }
 
-            if (IsPeerBlock(part))
+            if (IsBridgeBlock(part))
             {
                 var blockSegments = ReadBlockSegments(part);
-                segments.Add("peer");
+                segments.Add("bridge");
                 segments.Add(blockSegments[1]);
                 cursor++;
                 continue;
@@ -238,14 +238,14 @@ public static class JournalPathMapper
                 continue;
             }
 
-            if (string.Equals(segment, "peer", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(segment, "bridge", StringComparison.OrdinalIgnoreCase))
             {
                 if (cursor + 1 >= segments.Length)
                 {
                     return false;
                 }
 
-                parts.Add(new object[] { "*peer*", segments[cursor + 1], "chain" });
+                parts.Add(new object[] { "*bridge*", segments[cursor + 1], "chain" });
                 cursor += 2;
                 continue;
             }
@@ -264,12 +264,12 @@ public static class JournalPathMapper
             string.Equals(segments[0], "*state*", StringComparison.Ordinal);
     }
 
-    private static bool IsPeerBlock(JsonElement element)
+    private static bool IsBridgeBlock(JsonElement element)
     {
         var segments = TryReadBlockSegments(element);
         return segments != null &&
             segments.Length == 3 &&
-            string.Equals(segments[0], "*peer*", StringComparison.Ordinal) &&
+            string.Equals(segments[0], "*bridge*", StringComparison.Ordinal) &&
             string.Equals(segments[2], "chain", StringComparison.Ordinal);
     }
 

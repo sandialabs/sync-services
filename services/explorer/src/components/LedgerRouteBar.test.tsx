@@ -6,7 +6,7 @@ import { LedgerHop } from '../types';
 describe('LedgerRouteBar', () => {
   const hops: LedgerHop[] = [
     { key: 'local', kind: 'local', name: 'Self', snapshot: '42' },
-    { key: 'alice-1', kind: 'peer', name: 'alice', snapshot: 'latest' },
+    { key: 'alice-1', kind: 'bridge', name: 'alice', snapshot: 'latest' },
   ];
 
   it('shows the root sync button inline with the first hop', () => {
@@ -54,7 +54,7 @@ describe('LedgerRouteBar', () => {
     expect(onSnapshotChange).toHaveBeenLastCalledWith(1, 'latest');
   });
 
-  it('shows peer choices inside the chooser shell when open', () => {
+  it('shows bridge choices inside the chooser shell when open', () => {
     render(
       <LedgerRouteBar
         hops={hops}
@@ -72,6 +72,6 @@ describe('LedgerRouteBar', () => {
 
     expect(screen.getByText('bob')).toBeInTheDocument();
     expect(screen.getByText('carol')).toBeInTheDocument();
-    expect(screen.getByTitle('Exit peer selection')).toBeInTheDocument();
+    expect(screen.getByTitle('Exit bridge selection')).toBeInTheDocument();
   });
 });

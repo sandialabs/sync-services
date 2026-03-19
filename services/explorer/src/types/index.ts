@@ -17,8 +17,8 @@ export type ExplorerMode = 'stage' | 'ledger';
 
 export interface JournalResponse<T = any> {
   content: T;
-  'pinned?': boolean | JournalPath | null;
-  proof: any;
+  'pinned?'?: boolean | JournalPath | null;
+  proof?: any;
 }
 
 export interface PeerInfo {
@@ -44,7 +44,7 @@ export interface ExplorerSelection {
 
 export interface LedgerHop {
   key: string;
-  kind: 'local' | 'peer';
+  kind: 'local' | 'bridge';
   name: string;
   snapshot: string;
 }

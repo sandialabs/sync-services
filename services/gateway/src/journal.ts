@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger } from "fastify";
+import { recordJournalCall } from "./metrics";
 
 export interface JournalCall {
   functionName: string;
@@ -194,8 +195,20 @@ export const createJournalClient = (
         throw new Error(`Journal error (${response.status})`);
       }
 
+      recordJournalCall({
+        mode: "json",
+        functionName: input.functionName,
+        result: "success",
+        durationSeconds: (Date.now() - startedAt) / 1000,
+      });
       return parsed;
     } catch (error) {
+      recordJournalCall({
+        mode: "json",
+        functionName: input.functionName,
+        result: "error",
+        durationSeconds: (Date.now() - startedAt) / 1000,
+      });
       if (error instanceof JournalSemanticError) {
         throw error;
       }
@@ -272,8 +285,20 @@ export const createJournalClient = (
         throw new Error(`Journal error (${response.status})`);
       }
 
+      recordJournalCall({
+        mode: "lisp",
+        functionName: input.functionName,
+        result: "success",
+        durationSeconds: (Date.now() - startedAt) / 1000,
+      });
       return parsed;
     } catch (error) {
+      recordJournalCall({
+        mode: "lisp",
+        functionName: input.functionName,
+        result: "error",
+        durationSeconds: (Date.now() - startedAt) / 1000,
+      });
       if (error instanceof JournalSemanticError) {
         throw error;
       }

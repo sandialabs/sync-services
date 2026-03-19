@@ -33,7 +33,7 @@ HTTPS_PORT=443 \
 docker compose -f compose/general/docker-compose.yml up -d
 ```
 
-Run with local Lisp sources for the journal bootstrap:
+Run with local Scheme sources for `general.scm` and related runtime classes:
 
 ```bash
 LOCAL_LISP_DIRECTORY=/absolute/path/to/lisp SECRET=password PORT=8192 ./tests/local-compose.sh up
@@ -58,7 +58,6 @@ Run the compose smoke with the SMB file-system service:
 ```
 
 `local-compose.sh` forces HTTP mode by default for local runs. To allow TLS behavior in local-compose, set `LOCAL_COMPOSE_FORCE_HTTP=0`.
-If you need to temporarily disable the file-system service in local-compose, set `ENABLE_FILE_SYSTEM=0`.
 If you need a local override image for active development, set `FILE_SYSTEM_IMAGE`.
 
 Smoke validation with local Lisp override:

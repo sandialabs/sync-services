@@ -46,7 +46,7 @@ const firstHopToRootIndex = (snapshot: string, rootIndex: number): number => {
   return parsed;
 };
 
-const peerHopToIndex = (snapshot: string): number => {
+const bridgeHopToIndex = (snapshot: string): number => {
   const normalized = normalizeSnapshotValue(snapshot);
   if (normalized === LEDGER_LATEST) {
     return -1;
@@ -66,8 +66,8 @@ export const buildLedgerRouteBasePath = (
   const path: JournalPath = [firstHopToRootIndex(first.snapshot, rootIndex)];
 
   for (const hop of rest) {
-    path.push(['*peer*', hop.name, 'chain']);
-    path.push(peerHopToIndex(hop.snapshot));
+    path.push(['*bridge*', hop.name, 'chain']);
+    path.push(bridgeHopToIndex(hop.snapshot));
   }
 
   return path;
@@ -78,7 +78,7 @@ export const buildLedgerStateRootPath = (
   rootIndex: number,
 ): JournalPath => [...buildLedgerRouteBasePath(hops, rootIndex), ['*state*']];
 
-export const buildLedgerPeersPath = (
+export const buildLedgerBridgesPath = (
   hops: LedgerHop[],
   rootIndex: number,
-): JournalPath => [...buildLedgerRouteBasePath(hops, rootIndex), ['*peer*']];
+): JournalPath => [...buildLedgerRouteBasePath(hops, rootIndex), ['*bridge*']];

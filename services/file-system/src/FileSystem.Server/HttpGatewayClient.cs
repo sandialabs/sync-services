@@ -23,7 +23,7 @@ public sealed class GatewaySemanticException : Exception
     public HttpStatusCode StatusCode { get; }
 }
 
-public sealed class HttpGatewayClient : IGeneralGatewayClient, IDisposable
+public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
@@ -46,7 +46,8 @@ public sealed class HttpGatewayClient : IGeneralGatewayClient, IDisposable
         var arguments = new JsonObject
         {
             ["path"] = JsonSerializer.SerializeToNode(request.Path),
-            ["details?"] = request.Details,
+            ["pinned?"] = request.Pinned,
+            ["proof?"] = request.Proof,
         };
 
         return await PostGeneralAsync("get", arguments, cancellationToken);
@@ -61,6 +62,32 @@ public sealed class HttpGatewayClient : IGeneralGatewayClient, IDisposable
         };
 
         return await PostGeneralAsync("set", arguments, cancellationToken);
+    }
+
+    public async Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
+    {
+        var requests = new JsonArray();
+        foreach (var operation in request.Requests)
+        {
+            var item = new JsonObject
+            {
+                ["function"] = operation.Function,
+            };
+
+            if (operation.Arguments is not null)
+            {
+                item["arguments"] = operation.Arguments.DeepClone();
+            }
+
+            requests.Add(item);
+        }
+
+        var arguments = new JsonObject
+        {
+            ["requests"] = requests,
+        };
+
+        return await PostGeneralAsync("general-batch", arguments, cancellationToken);
     }
 
     public async Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
@@ -108,9 +135,9 @@ public sealed class HttpGatewayClient : IGeneralGatewayClient, IDisposable
         };
     }
 
-    public async Task<IReadOnlyList<string>> PeersAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "general/peers");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "general/bridges");
         if (_authToken != null)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
@@ -136,7 +163,7 @@ public sealed class HttpGatewayClient : IGeneralGatewayClient, IDisposable
 
         if (body is not JsonArray array)
         {
-            throw new InvalidDataException("Gateway peers response must be an array.");
+            throw new InvalidDataException("Gateway bridges response must be an array.");
         }
 
         return array

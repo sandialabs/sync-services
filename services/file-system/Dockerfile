@@ -48,7 +48,7 @@ ENV SYNC_FS_EnableSmb3=false
 ENV SYNC_FS_AllowGuest=true
 ENV SYNC_FS_GuestAccountName=Guest
 ENV SYNC_FS_GatewayBaseUrl=http://gateway/api/v1
-ENV SYNC_FS_GatewayTimeoutMs=10000
+ENV SYNC_FS_GatewayTimeoutMs=30000
 
 COPY --from=build /app/publish ./
 

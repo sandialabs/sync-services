@@ -6,27 +6,27 @@
     "permission": "any"
   },
   "synchronize": {
-    "description": "Returns a serialized proof of the chain state up to the specified index. Used for peer synchronization to verify chain integrity and fetch missing data.",
+    "description": "Returns a serialized proof of the chain state up to the specified index. Used for bridge synchronization to verify chain integrity and fetch missing data.",
     "template": "((function synchronize) (arguments ((index <index>))))",
     "example": "((function synchronize) (arguments ((index 0))))",
     "permission": "any"
   },
   "resolve": {
-    "description": "Returns a serialized proof for data at a specific path and index. Used by peers to fetch and verify specific data from the chain.",
+    "description": "Returns a serialized proof for data at a specific path and index. Used by bridges to fetch and verify specific data from the chain.",
     "template": "((function resolve) (arguments ((index <index>) (path <path>))))",
     "example": "((function resolve) (arguments ((index 0) (path ((*state* key))))))",
     "permission": "any"
   },
   "information": {
-    "description": "Returns public configuration information about this journal, including the public key and window size. Used by peers to identify and verify this journal.",
+    "description": "Returns public configuration information about this journal, including the public key and window size. Used by bridges to identify and verify this journal.",
     "template": "((function information))",
     "example": "((function information))",
     "permission": "any"
   },
   "get": {
-    "description": "Retrieves data at the specified path. If the first element is an integer, it fetches from that chain index (negative indices count from the end). Otherwise fetches from the current staging area. When details? is true, returns content, pinned status, and proof.",
-    "template": "((function get) (arguments ((path <path>) (details? <details?>))) (authentication <secret>))",
-    "example": "((function get) (arguments ((path ((*state* *time*))) (details? #t))) (authentication \"mysecret\"))",
+    "description": "Retrieves data at the specified path. If the first element is an integer, it fetches from that chain index (negative indices count from the end). Otherwise fetches from the current staging area. Optional pinned? and proof? flags control whether the response includes pin metadata and proof material.",
+    "template": "((function get) (arguments ((path <path>) (pinned? <pinned?>) (proof? <proof?>))) (authentication <secret>))",
+    "example": "((function get) (arguments ((path ((*state* *time*))) (pinned? #t) (proof? #t))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "set!": {
@@ -47,10 +47,16 @@
     "example": "((function unpin!) (arguments ((path (-1 (*state* old-data))))) (authentication \"mysecret\"))",
     "permission": "user"
   },
-  "general-peer!": {
-    "description": "Adds a new peer with the given name and endpoint URL. This creates remote procedure bindings for information, synchronize, and resolve operations with the peer.",
-    "template": "((function general-peer!) (arguments ((name <name>) (interface <endpoint>))) (authentication <secret>))",
-    "example": "((function general-peer!) (arguments ((name alice) (interface \"http://alice.example.com/interface\"))) (authentication \"mysecret\"))",
+  "general-batch!": {
+    "description": "Executes multiple ledger-oriented general requests in order under one authenticated call and persists once at the end. Each item in requests includes a function name and an arguments object.",
+    "template": "((function general-batch!) (arguments ((requests (((function <function-1>) (arguments ((<key-1> <value-1>) ...))) ((function <function-2>)) ...)))) (authentication <secret>))",
+    "example": "((function general-batch!) (arguments ((requests (((function get) (arguments ((path ((*state* *time*))) (pinned? #t) (proof? #f)))) ((function configuration)))))) (authentication \"mysecret\"))",
+    "permission": "user"
+  },
+  "general-bridge!": {
+    "description": "Adds a new bridge with the given name and endpoint URL. This creates remote procedure bindings for information, synchronize, and resolve operations with the bridge.",
+    "template": "((function general-bridge!) (arguments ((name <name>) (interface <endpoint>))) (authentication <secret>))",
+    "example": "((function general-bridge!) (arguments ((name alice) (interface \"http://alice.example.com/interface\"))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "configuration": {
@@ -59,20 +65,20 @@
     "example": "((function configuration) (authentication \"mysecret\"))",
     "permission": "user"
   },
-  "peer!": {
-    "description": "Low-level function to add a peer with custom remote procedure bindings. Requires providing information, synchronize, and resolve lambda functions.",
-    "template": "((function peer!) (arguments ((name <name>) (info <info>))) (authentication <secret>))",
-    "example": "((function peer!) (arguments ((name alice) (info ((information (lambda () ...)) (synchronize (lambda (index) ...)) (resolve (lambda (source target) ...)))))) (authentication \"mysecret\"))",
+  "bridge!": {
+    "description": "Low-level function to add a bridge with custom remote procedure bindings. Requires providing information, synchronize, and resolve lambda functions.",
+    "template": "((function bridge!) (arguments ((name <name>) (info <info>))) (authentication <secret>))",
+    "example": "((function bridge!) (arguments ((name alice) (info ((information (lambda () ...)) (synchronize (lambda (index) ...)) (resolve (lambda (source target) ...)))))) (authentication \"mysecret\"))",
     "permission": "user"
   },
-  "peers": {
-    "description": "Returns a list of all configured peer names.",
-    "template": "((function peers) (authentication <secret>))",
-    "example": "((function peers) (authentication \"mysecret\"))",
+  "bridges": {
+    "description": "Returns a list of all configured bridge names.",
+    "template": "((function bridges) (authentication <secret>))",
+    "example": "((function bridges) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "step-generate": {
-    "description": "Generates the list of sub-steps needed for a full chain step. Returns a list of step operations including step-peer! for each peer and step-chain! to commit.",
+    "description": "Generates the list of sub-steps needed for a full chain step. Returns a list of step operations including step-bridge! for each bridge and step-chain! to commit.",
     "template": "((function step-generate) (authentication <secret>))",
     "example": "((function step-generate) (authentication \"mysecret\"))",
     "permission": "user"
@@ -83,10 +89,10 @@
     "example": "((function step-chain!) (authentication \"mysecret\"))",
     "permission": "user"
   },
-  "step-peer!": {
-    "description": "Synchronizes with a specific peer by fetching their latest chain state and verifying signatures. Updates the staging area with the peer's chain data.",
-    "template": "((function step-peer!) (arguments ((name <peer-name>))) (authentication <secret>))",
-    "example": "((function step-peer!) (arguments ((name alice))) (authentication \"mysecret\"))",
+  "step-bridge!": {
+    "description": "Synchronizes with a specific bridge by fetching its latest chain state and verifying signatures. Updates the staging area with the bridge's chain data.",
+    "template": "((function step-bridge!) (arguments ((name <bridge-name>))) (authentication <secret>))",
+    "example": "((function step-bridge!) (arguments ((name alice))) (authentication \"mysecret\"))",
     "permission": "user"
   },
   "*secret*": {

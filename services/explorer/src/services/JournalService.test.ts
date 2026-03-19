@@ -154,7 +154,7 @@ describe('JournalService API', () => {
   });
 
   describe('get', () => {
-    it('should call get endpoint with path and include-proof flag', async () => {
+    it('should call get endpoint with path and pinned/proof flags', async () => {
       const mockResponse = {
         content: { '*type/string*': 'test content' },
         'pinned?': null,
@@ -174,7 +174,7 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({ path, 'details?': true }),
+          body: JSON.stringify({ path, 'pinned?': true, 'proof?': true }),
         })
       );
     });
@@ -289,14 +289,14 @@ describe('JournalService API', () => {
   });
 
   describe('addPeer', () => {
-    it('should call general-peer! with name and endpoint', async () => {
+    it('should call general-bridge! with name and endpoint', async () => {
       mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const result = await service.addPeer('peer-name', 'http://peer-endpoint.com');
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com/api/v1/general/general-peer',
+        'http://test-endpoint.com/api/v1/general/general-bridge',
         expect.objectContaining({
           method: 'POST',
           headers: {
@@ -313,7 +313,7 @@ describe('JournalService API', () => {
   });
 
   describe('getPeers', () => {
-    it('should call peers endpoint and normalize names', async () => {
+    it('should call bridges endpoint and normalize names', async () => {
       mockFetch.mockResolvedValueOnce(
         mockJsonResponse([{ '*type/string*': 'alice' }, 'bob'])
       );
@@ -323,7 +323,7 @@ describe('JournalService API', () => {
         { name: 'bob', endpoint: '' },
       ]);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com/api/v1/general/peers',
+        'http://test-endpoint.com/api/v1/general/bridges',
         expect.objectContaining({
           method: 'GET',
           headers: {

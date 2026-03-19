@@ -69,14 +69,14 @@ export const buildVersionPath = (
     return [versionOffset, ...basePath.slice(1)];
   }
 
-  // For peer journals - update the appropriate index in the path
+  // For bridged journals - update the appropriate index in the path
   const modifiedPath = [...basePath];
-  let peerCount = 0;
+  let bridgeCount = 0;
 
   for (let i = 0; i < modifiedPath.length; i++) {
     if (typeof modifiedPath[i] === 'number') {
-      peerCount++;
-      if (peerCount === tabIndex + 1) {
+      bridgeCount++;
+      if (bridgeCount === tabIndex + 1) {
         modifiedPath[i] = versionOffset;
         break;
       }
@@ -95,11 +95,11 @@ export const getVersionAtTab = (path: JournalPath, tabIndex: number): number | n
     return typeof firstElement === 'number' ? firstElement : null;
   }
 
-  let peerCount = 0;
+  let bridgeCount = 0;
   for (const segment of path) {
     if (typeof segment === 'number') {
-      peerCount++;
-      if (peerCount === tabIndex + 1) {
+      bridgeCount++;
+      if (bridgeCount === tabIndex + 1) {
         return segment;
       }
     }
@@ -119,14 +119,14 @@ export const buildChildPath = (parentPath: JournalPath, itemName: string): Journ
 
   const segmentType = lastSegment[0];
 
-  if (segmentType === '*peer*') {
+  if (segmentType === '*bridge*') {
     if (lastSegment.length === 1) {
-      // Listing peers - create peer chain path
-      return [...parentPath.slice(0, -1), ['*peer*', itemName, 'chain'], -1];
+      // Listing bridges - create bridge chain path
+      return [...parentPath.slice(0, -1), ['*bridge*', itemName, 'chain'], -1];
     }
     if (lastSegment.length === 3) {
-      // Already in peer's chain
-      return [...parentPath, -1, ['*peer*', itemName, 'chain'], -1];
+      // Already in bridge's chain
+      return [...parentPath, -1, ['*bridge*', itemName, 'chain'], -1];
     }
   }
 

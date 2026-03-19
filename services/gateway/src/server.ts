@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getConfig } from "./config";
 import { createJournalClient } from "./journal";
+import { instrumentGatewayRequests } from "./metrics";
 import { gatewayRoutes } from "./routes";
 
 const apiDescription = `
@@ -13,6 +14,7 @@ Versioned, function-oriented HTTP gateway over Synchronic journal interfaces.
 Start here:
 - Use GET routes for simple read-only checks: /api/v1/general/size and /api/v1/general/information.
 - Use POST /api/v1/general/{operation} for function calls that take arguments.
+- Use POST /api/v1/general/general-batch for ordered multi-request workflows under one authenticated call.
 - For restricted routes, provide either Authorization bearer token or X-Sync-Auth header.
 
 Request bodies:
@@ -96,7 +98,9 @@ const main = async (): Promise<void> => {
   const config = getConfig();
   const app = Fastify({
     logger: true,
+    bodyLimit: 64 * 1024 * 1024,
   });
+  instrumentGatewayRequests(app);
   const logo = readGatewayLogo();
 
   app.addContentTypeParser("text/plain", { parseAs: "string" }, (_req, body, done) =>
@@ -126,7 +130,7 @@ const main = async (): Promise<void> => {
         {
           name: "General API (Restricted)",
           description:
-            "Authenticated general operations for reads/writes, peer config, and stepping.",
+            "Authenticated general operations for reads/writes, bridge config, and stepping.",
         },
         {
           name: "Control API (Admin)",

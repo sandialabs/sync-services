@@ -21,14 +21,14 @@ const buildChildPath = (parentPath: JournalPath, itemName: string): JournalPath 
 
   const segmentType = lastSegment[0];
 
-  if (segmentType === '*peer*') {
+  if (segmentType === '*bridge*') {
     if (lastSegment.length === 1) {
-      // Listing peers - create peer chain path
-      return [...parentPath.slice(0, -1), ['*peer*', itemName, 'chain'], -1];
+      // Listing bridges - create bridge chain path
+      return [...parentPath.slice(0, -1), ['*bridge*', itemName, 'chain'], -1];
     }
     if (lastSegment.length === 3) {
-      // Already in peer's chain
-      return [...parentPath, -1, ['*peer*', itemName, 'chain'], -1];
+      // Already in bridge's chain
+      return [...parentPath, -1, ['*bridge*', itemName, 'chain'], -1];
     }
   }
 
@@ -80,10 +80,10 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
         isLocal: true,
       },
       {
-        id: 'peers',
-        label: 'peer',
+        id: 'bridges',
+        label: 'bridge',
         type: 'directory',
-        path: [appState.rootIndex, ['*peer*']],
+        path: [appState.rootIndex, ['*bridge*']],
         isLocal: false,
       },
     ];
@@ -105,7 +105,7 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
     onExpandedNodesChange(newExpanded);
   };
 
-  const isPeerChainNode = (path: JournalPath): boolean => {
+  const isBridgeChainNode = (path: JournalPath): boolean => {
     if (path.length < 2) return false;
     
     const lastSegment = path[path.length - 1];
@@ -114,12 +114,12 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
     return (
       typeof lastSegment === 'number' &&
       Array.isArray(previousSegment) &&
-      previousSegment[0] === '*peer*' &&
+      previousSegment[0] === '*bridge*' &&
       previousSegment.length === 3
     );
   };
 
-  const createPeerChainChildren = (node: TreeNode): TreeNode[] => [
+  const createBridgeChainChildren = (node: TreeNode): TreeNode[] => [
     {
       id: `${node.id}-state`,
       label: 'state',
@@ -129,11 +129,11 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
       isLocal: false,
     },
     {
-      id: `${node.id}-peer`,
-      label: 'peer',
+      id: `${node.id}-bridge`,
+      label: 'bridge',
       type: 'directory',
       valueType: 'directory',
-      path: [...node.path, ['*peer*']],
+      path: [...node.path, ['*bridge*']],
       isLocal: false,
     },
   ];
@@ -142,9 +142,9 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
     if (!journalService) return;
 
     try {
-      // Special handling for peer chain nodes
-      if (isPeerChainNode(node.path)) {
-        node.children = createPeerChainChildren(node);
+      // Special handling for bridge chain nodes
+      if (isBridgeChainNode(node.path)) {
+        node.children = createBridgeChainChildren(node);
         setTreeData([...treeData]);
         return;
       }
@@ -260,7 +260,7 @@ const NavigationTab: React.FC<NavigationTabProps> = ({
     const isExpanded = appState.expandedNodes.has(node.id);
     const isSelected = JSON.stringify(node.path) === JSON.stringify(appState.selectedPath);
     const isError = node.label.startsWith('Error:');
-    const isSpecial = node.label === 'peer' || node.label === 'state';
+    const isSpecial = node.label === 'bridge' || node.label === 'state';
     const isDirectory = node.type === 'directory';
     const nodeKind = node.valueType ?? (isDirectory ? 'directory' : 'value');
     const typeBadge =

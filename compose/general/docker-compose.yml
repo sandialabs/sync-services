@@ -4,7 +4,7 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/general:1.1.4
+    image: ghcr.io/sandialabs/sync-services/general:1.2.0
     container_name: journal
     networks:
       - docker
@@ -17,7 +17,7 @@ services:
       - database:/srv/database
 
   explorer:
-    image: ghcr.io/sandialabs/sync-services/explorer:1.1.0
+    image: ghcr.io/sandialabs/sync-services/explorer:1.2.0
     container_name: explorer
     networks:
       - docker
@@ -25,7 +25,7 @@ services:
       SYNC_EXPLORER_ENDPOINT: /api/v1
 
   workbench:
-    image: ghcr.io/sandialabs/sync-services/workbench:1.0.2
+    image: ghcr.io/sandialabs/sync-services/workbench:1.0.3
     container_name: workbench
     networks:
       - docker
@@ -33,7 +33,7 @@ services:
       SYNC_WORKBENCH_ENDPOINT: /interface
 
   gateway:
-    image: ghcr.io/sandialabs/sync-services/gateway:1.0.1
+    image: ghcr.io/sandialabs/sync-services/gateway:1.1.0
     container_name: gateway
     networks:
       - docker
@@ -44,10 +44,11 @@ services:
       PORT: 80
       JOURNAL_JSON_ENDPOINT: http://journal/interface/json
       JOURNAL_LISP_ENDPOINT: http://journal/interface
+      REQUEST_TIMEOUT_MS: ${REQUEST_TIMEOUT_MS:-30000}
       ALLOW_ADMIN_ROUTES: "1"
 
   router:
-    image: ghcr.io/sandialabs/sync-services/router:1.1.1
+    image: ghcr.io/sandialabs/sync-services/router:1.2.0
     container_name: router
     environment:
       TLS_CERT_FILE: ${TLS_CERT_FILE:-/etc/nginx/certs/tls.crt}
@@ -70,19 +71,20 @@ services:
   file-system:
     image: ${FILE_SYSTEM_IMAGE:-ghcr.io/sandialabs/sync-services/file-system:1.1.0}
     container_name: file-system
-    profiles:
-      - filesystem
     depends_on:
+      - journal
       - gateway
     networks:
       - docker
     environment:
       SYNC_FS_Mode: static-smb
-      SYNC_FS_Backend: http-gateway-stage
+      SYNC_FS_Backend: ${SYNC_FS_Backend:-http-journal-stage}
       SYNC_FS_Port: 445
       SYNC_FS_ShareName: sync
       SYNC_FS_AllowGuest: "true"
-      SYNC_FS_GatewayBaseUrl: http://gateway/api/v1
+      SYNC_FS_GatewayBaseUrl: ${SYNC_FS_GatewayBaseUrl:-http://gateway/api/v1}
+      SYNC_FS_JournalJsonUrl: ${SYNC_FS_JournalJsonUrl:-http://journal/interface/json}
+      SYNC_FS_GatewayTimeoutMs: ${SYNC_FS_GatewayTimeoutMs:-30000}
       SYNC_FS_GatewayAuthToken: ${SECRET}
     ports:
       - "${SMB_PORT:-445}:445"

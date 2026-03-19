@@ -119,14 +119,15 @@ const generalAliases = {
   set: "set!",
   pin: "pin!",
   unpin: "unpin!",
+  "general-batch": "general-batch!",
   synchronize: "synchronize",
   resolve: "resolve",
-  peer: "peer!",
-  "general-peer": "general-peer!",
+  bridge: "bridge!",
+  "general-bridge": "general-bridge!",
   configuration: "configuration",
   "step-generate": "step-generate",
   "step-chain": "step-chain!",
-  "step-peer": "step-peer!",
+  "step-bridge": "step-bridge!",
   "set-secret": "*secret*",
 } as const;
 
@@ -147,7 +148,7 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
   get: {
     summary: "Read ledger or staged state",
     description:
-      "Calls general function `get`. Use for path reads and optional detail/proof retrieval.",
+      "Calls general function `get`. Use for path reads with optional `pinned?` and `proof?` metadata flags.",
   },
   set: {
     summary: "Stage a state write",
@@ -164,25 +165,30 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
     description:
       "Calls general function `unpin!`. Returns selected content to normal retention behavior.",
   },
+  "general-batch": {
+    summary: "Execute multiple general requests in order",
+    description:
+      "Calls general function `general-batch!`. Accepts a `requests` list of request-shaped entries, executes them in order against the ledger, and persists once at the end.",
+  },
   synchronize: {
     summary: "Generate synchronization payload",
     description:
-      "Calls public general function `synchronize`. Used by peers/services to fetch digest/proof material for anti-entropy synchronization.",
+      "Calls public general function `synchronize`. Used by bridges/services to fetch digest/proof material for anti-entropy synchronization.",
   },
   resolve: {
     summary: "Resolve a path/index proof view",
     description:
-      "Calls public general function `resolve`. Used by peers/services to verify remote path state against a chain position.",
+      "Calls public general function `resolve`. Used by bridges/services to verify remote path state against a chain position.",
   },
-  peer: {
-    summary: "Register or update a peer",
+  bridge: {
+    summary: "Register or update a bridge",
     description:
-      "Calls general function `peer!` with explicit handler metadata for remote information/synchronize/resolve calls.",
+      "Calls general function `bridge!` with explicit handler metadata for remote information/synchronize/resolve calls.",
   },
-  "general-peer": {
-    summary: "Register a peer using general defaults",
+  "general-bridge": {
+    summary: "Register a bridge using general defaults",
     description:
-      "Calls general function `general-peer!`. Convenience form that wires standard peer handlers from a base interface URL.",
+      "Calls general function `general-bridge!`. Convenience form that wires standard bridge handlers from a base interface URL.",
   },
   configuration: {
     summary: "Read full node configuration",
@@ -192,17 +198,17 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
   "step-generate": {
     summary: "Generate ordered step actions",
     description:
-      "Calls general function `step-generate`. Produces the ordered plan used for chain and peer stepping.",
+      "Calls general function `step-generate`. Produces the ordered plan used for chain and bridge stepping.",
   },
   "step-chain": {
     summary: "Commit staged state to chain",
     description:
       "Calls general function `step-chain!`. Advances permanent chain state from staged updates.",
   },
-  "step-peer": {
-    summary: "Step synchronization for one peer",
+  "step-bridge": {
+    summary: "Step synchronization for one bridge",
     description:
-      "Calls general function `step-peer!`. Pulls and verifies state/proofs from a named peer.",
+      "Calls general function `step-bridge!`. Pulls and verifies state/proofs from a named bridge.",
   },
   "set-secret": {
     summary: "Rotate the general interface secret",
@@ -338,12 +344,17 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: application/json" \\
-  -d '{"path":[["*state*","docs"]],"details?":true}'</code></pre>
+  -d '{"path":[["*state*","docs"]],"pinned?":true,"proof?":true}'</code></pre>
       <p>Lisp body call:</p>
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: text/plain" \\
-  -d '((path ((*state* docs))) (details? #t))'</code></pre>
+  -d '((path ((*state* docs))) (pinned? #t) (proof? #t))'</code></pre>
+      <p>Batch call:</p>
+      <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \\
+  -H "Authorization: Bearer password" \\
+  -H "Content-Type: application/json" \\
+  -d '{"requests":[{"function":"get","arguments":{"path":[["*state*","docs"]],"pinned?":true,"proof?":false}},{"function":"configuration"}]}'</code></pre>
     </div>
   </body>
 </html>`)
@@ -431,19 +442,19 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   );
 
   app.get(
-    "/api/v1/general/peers",
+    "/api/v1/general/bridges",
     {
       schema: {
         tags: ["General API (Restricted)"],
-        summary: "List configured peers",
+        summary: "List configured bridges",
         description:
-          "Restricted convenience endpoint for general function `peers`. Requires gateway auth header.",
+          "Restricted convenience endpoint for general function `bridges`. Requires gateway auth header.",
         security: restrictedSecurity,
       },
     },
     async (request) =>
       journal.callJson({
-        functionName: "peers",
+        functionName: "bridges",
         authentication: requireAuth(request),
       })
   );

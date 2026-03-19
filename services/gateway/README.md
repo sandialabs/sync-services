@@ -12,6 +12,7 @@ It adds:
 - explicit auth headers instead of body-only credentials
 - JSON and Lisp request-body support behind one route shape
 - Swagger/OpenAPI docs for discoverability and onboarding
+- Prometheus-compatible metrics emission at `/metrics`
 - readiness/liveness probes for container orchestration
 
 ## Development
@@ -57,7 +58,8 @@ npm run start
 - `PORT` (default: `8180`)
 - `JOURNAL_JSON_ENDPOINT` (default: `http://127.0.0.1:8192/interface/json`)
 - `JOURNAL_LISP_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
-- `REQUEST_TIMEOUT_MS` (default: `10000`)
+- `REQUEST_TIMEOUT_MS` (default: `30000`)
+- Request body limit: `64 MiB`
 - `ALLOW_ADMIN_ROUTES` (default: `false`)
 - `DEBUG_FORWARDING` (default: `false`)
 - `DEBUG_FORWARDING_INCLUDE_AUTH` (default: `false`; unsafe, local debugging only)
@@ -73,7 +75,7 @@ npm run start
   - `/api/v1/general/size`
   - `/api/v1/general/information`
 - Restricted `GET` endpoint:
-  - `/api/v1/general/peers`
+  - `/api/v1/general/bridges`
 
 Swagger UI:
 
@@ -96,7 +98,7 @@ Gateway supports both JSON and Lisp request bodies for `POST` operation endpoint
 { ... }
 ```
 
-- Use keyword-style argument object fields directly (for example `{ "path": ..., "details?": true }`).
+- Use keyword-style argument object fields directly (for example `{ "path": ..., "pinned?": true, "proof?": true }`).
 
 - Forwarded to: `/interface/json`
 
@@ -108,7 +110,7 @@ Gateway supports both JSON and Lisp request bodies for `POST` operation endpoint
 Example body:
 
 ```scheme
-((path ((*state* docs article hash))) (details? #t))
+((path ((*state* docs article hash))) (pinned? #t) (proof? #t))
 ```
 
 Gateway composes the full Lisp call expression and forwards to:
@@ -130,24 +132,39 @@ If both are present, the `Authorization` header is used first.
 
 - `GET /healthz`
 - `GET /readyz`
+- `GET /metrics` (public Prometheus metrics)
+
+### Metrics
+
+The gateway emits Prometheus-format metrics directly from the process at `GET /metrics`.
+
+Included metrics:
+
+- default Node.js/process metrics from `prom-client`
+- `sync_gateway_requests_total`
+- `sync_gateway_request_duration_seconds`
+- `sync_gateway_in_flight_requests`
+- `sync_gateway_journal_requests_total`
+- `sync_gateway_journal_request_duration_seconds`
 
 ### General
 
 - `GET /api/v1/general/size` (public)
 - `GET /api/v1/general/information` (public)
-- `GET /api/v1/general/peers` (restricted)
+- `GET /api/v1/general/bridges` (restricted)
 - `POST /api/v1/general/get`
 - `POST /api/v1/general/set`
 - `POST /api/v1/general/pin`
 - `POST /api/v1/general/unpin`
+- `POST /api/v1/general/general-batch`
 - `POST /api/v1/general/synchronize`
 - `POST /api/v1/general/resolve`
-- `POST /api/v1/general/peer`
-- `POST /api/v1/general/general-peer`
+- `POST /api/v1/general/bridge`
+- `POST /api/v1/general/general-bridge`
 - `POST /api/v1/general/configuration`
 - `POST /api/v1/general/step-generate`
 - `POST /api/v1/general/step-chain`
-- `POST /api/v1/general/step-peer`
+- `POST /api/v1/general/step-bridge`
 - `POST /api/v1/general/set-secret`
 
 ### Control (disabled by default)
@@ -175,7 +192,7 @@ Restricted JSON call:
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: application/json" \
-  -d '{"path":[["*state*","docs","article","hash"]],"details?":true}'
+  -d '{"path":[["*state*","docs","article","hash"]],"pinned?":true,"proof?":true}'
 ```
 
 Restricted Lisp call:
@@ -184,7 +201,40 @@ Restricted Lisp call:
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: text/plain" \
-  -d '((path ((*state* docs article hash))) (details? #t))'
+  -d '((path ((*state* docs article hash))) (pinned? #t) (proof? #t))'
+```
+
+Restricted batch call:
+
+```bash
+curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \
+  -H "Authorization: Bearer password" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requests": [
+      {
+        "function": "get",
+        "arguments": {
+          "path": [["*state*","docs","article","hash"]],
+          "pinned?": true,
+          "proof?": false
+        }
+      },
+      {
+        "function": "configuration"
+      }
+    ]
+  }'
+```
+
+Restricted batch call in Lisp mode:
+
+```bash
+curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \
+  -H "Authorization: Bearer password" \
+  -H "Content-Type: text/plain" \
+  -d '((requests (((function get) (arguments ((path ((*state* docs article hash))) (pinned? #t) (proof? #f)))
+               ((function configuration))))))'
 ```
 
 Forwarding debug mode:
@@ -200,7 +250,23 @@ Recommended integration pattern:
 1. Use `GET` endpoints for simple public reads (`size`, `information`).
 2. Use `POST /api/v1/general/<operation>` for everything that takes arguments.
 3. Default to JSON in services; use Lisp mode for advanced evaluator-native flows.
-4. Validate payloads in Swagger first, then copy canonical samples into tests.
+4. Use `general-batch` when one workflow needs multiple ordered ledger requests under one authenticated call.
+5. Validate payloads in Swagger first, then copy canonical samples into tests.
+
+## Metrics
+
+The gateway emits Prometheus-format metrics at:
+
+- `GET /metrics`
+
+Current metrics include:
+
+- default Node.js/process metrics from `prom-client`
+- `sync_gateway_requests_total`
+- `sync_gateway_request_duration_seconds`
+- `sync_gateway_in_flight_requests`
+- `sync_gateway_journal_requests_total`
+- `sync_gateway_journal_request_duration_seconds`
 
 Operational cautions:
 

@@ -36,6 +36,7 @@ public sealed class GrammarValidationWorker : BackgroundService
             ValidateReadOnlyMutations();
             ValidateMockGatewayClient();
             ValidateHttpGatewayClient();
+            ValidateHttpJournalClient();
             ValidateGatewayProjectionFileSystem();
             ValidateContextualNodeListing();
             ValidatePinControlNamespace();
@@ -198,10 +199,10 @@ public sealed class GrammarValidationWorker : BackgroundService
                 new object[] { "*state*", "hello.txt" }
             };
 
-            var readResult = gateway.GetAsync(new GatewayGetRequest(stagePath, true), CancellationToken.None)
+            var readResult = gateway.GetAsync(new GatewayGetRequest(stagePath, true, false), CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
-            Assert(readResult is JsonObject, "mock gateway get should return a JSON object in details mode");
+            Assert(readResult is JsonObject, "mock gateway get should return a JSON object when metadata is requested");
             Assert(
                 string.Equals(readResult?["pinned?"]?.GetValue<bool>().ToString(), bool.FalseString, StringComparison.OrdinalIgnoreCase),
                 "mock gateway get should include pinned?");
@@ -215,7 +216,7 @@ public sealed class GrammarValidationWorker : BackgroundService
                 .GetAwaiter()
                 .GetResult();
 
-            var written = gateway.GetAsync(new GatewayGetRequest(setPath, true), CancellationToken.None)
+            var written = gateway.GetAsync(new GatewayGetRequest(setPath, true, false), CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
             Assert(
@@ -242,13 +243,14 @@ public sealed class GrammarValidationWorker : BackgroundService
         {
             new object[] { "*state*", "docs" }
         };
-        var getResult = gateway.GetAsync(new GatewayGetRequest(getPath, true), CancellationToken.None)
+        var getResult = gateway.GetAsync(new GatewayGetRequest(getPath, true, false), CancellationToken.None)
             .GetAwaiter()
             .GetResult();
         Assert(string.Equals(handler.LastRequestUri, "http://gateway/api/v1/general/get", StringComparison.Ordinal), "http gateway get URI should match gateway route");
         Assert(string.Equals(handler.LastAuthorization, "Bearer secret-token", StringComparison.Ordinal), "http gateway should send bearer auth");
         Assert(string.Equals(handler.LastBody?["path"]?.ToJsonString(), """[["*state*","docs"]]""", StringComparison.Ordinal), "http gateway get should serialize journal path");
-        Assert(handler.LastBody?["details?"]?.GetValue<bool>() == true, "http gateway get should serialize details?");
+        Assert(handler.LastBody?["pinned?"]?.GetValue<bool>() == true, "http gateway get should serialize pinned?");
+        Assert(handler.LastBody?["proof?"]?.GetValue<bool>() == false, "http gateway get should serialize proof? false for file-system reads");
         Assert(string.Equals(getResult?["ok"]?.GetValue<string>(), "get", StringComparison.Ordinal), "http gateway get should parse JSON response");
 
         var setPath = new object[]
@@ -286,18 +288,66 @@ public sealed class GrammarValidationWorker : BackgroundService
         handler.NextStatusCode = HttpStatusCode.BadRequest;
         handler.NextResponseBody = JsonNode.Parse("""{"error":"authentication-error","message":"bad token","details":["error"],"source":"journal"}""");
         AssertThrows<GatewaySemanticException>(
-            () => gateway.GetAsync(new GatewayGetRequest(getPath, true), CancellationToken.None).GetAwaiter().GetResult(),
+            () => gateway.GetAsync(new GatewayGetRequest(getPath, true, false), CancellationToken.None).GetAwaiter().GetResult(),
             "bad token");
 
         var size = gateway.SizeAsync(CancellationToken.None).GetAwaiter().GetResult();
         Assert(size == 10L, "http gateway size should parse numeric responses");
 
-        var peers = gateway.PeersAsync(CancellationToken.None).GetAwaiter().GetResult();
-        Assert(peers.SequenceEqual(new[] { "alice", "bob" }), "http gateway peers should parse string arrays");
+        var bridges = gateway.BridgesAsync(CancellationToken.None).GetAwaiter().GetResult();
+        Assert(bridges.SequenceEqual(new[] { "alice", "bob" }), "http gateway bridges should parse string arrays");
 
         handler.NextRespondWithEmptyBody = true;
-        var emptyPeers = gateway.PeersAsync(CancellationToken.None).GetAwaiter().GetResult();
-        Assert(emptyPeers.Count == 0, "http gateway peers should treat null response as empty");
+        var emptyBridges = gateway.BridgesAsync(CancellationToken.None).GetAwaiter().GetResult();
+        Assert(emptyBridges.Count == 0, "http gateway bridges should treat null response as empty");
+    }
+
+    private void ValidateHttpJournalClient()
+    {
+        var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://journal/interface/json", UriKind.Absolute),
+            Timeout = TimeSpan.FromSeconds(5),
+        };
+        using var journal = new HttpJournalClient(httpClient, "secret-token");
+
+        var getPath = new object[]
+        {
+            new object[] { "*state*", "docs" }
+        };
+        var getResult = journal.GetAsync(new GatewayGetRequest(getPath, true, false), CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        Assert(string.Equals(handler.LastRequestUri, "http://journal/interface/json", StringComparison.Ordinal), "http journal get URI should match direct journal endpoint");
+        Assert(handler.LastAuthorization == null, "http journal should not send bearer auth");
+        Assert(string.Equals(handler.LastBody?["function"]?.GetValue<string>(), "get", StringComparison.Ordinal), "http journal get should use function envelope");
+        Assert(string.Equals(handler.LastBody?["authentication"]?["*type/string*"]?.GetValue<string>(), "secret-token", StringComparison.Ordinal), "http journal get should serialize authentication in the body");
+        Assert(string.Equals(handler.LastBody?["arguments"]?["path"]?.ToJsonString(), """[["*state*","docs"]]""", StringComparison.Ordinal), "http journal get should serialize journal path");
+        Assert(handler.LastBody?["arguments"]?["pinned?"]?.GetValue<bool>() == true, "http journal get should serialize pinned?");
+        Assert(handler.LastBody?["arguments"]?["proof?"]?.GetValue<bool>() == false, "http journal get should serialize proof? false for file-system reads");
+        Assert(string.Equals(getResult?["ok"]?.GetValue<string>(), "get", StringComparison.Ordinal), "http journal get should parse JSON response");
+
+        var batchResult = journal.BatchAsync(
+                new GatewayBatchRequest(
+                    new[]
+                    {
+                        new GatewayBatchOperation(
+                            "set!",
+                            new JsonObject
+                            {
+                                ["path"] = JsonNode.Parse("""[["*state*","docs","a.txt"]]"""),
+                                ["value"] = JsonNode.Parse("""{"*type/string*":"a"}"""),
+                            }),
+                        new GatewayBatchOperation("configuration", null),
+                    }),
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        Assert(string.Equals(handler.LastBody?["function"]?.GetValue<string>(), "general-batch!", StringComparison.Ordinal), "http journal batch should use general-batch!");
+        Assert(string.Equals(handler.LastBody?["arguments"]?["requests"]?[0]?["function"]?.GetValue<string>(), "set!", StringComparison.Ordinal), "http journal batch should preserve function names");
+        Assert(string.Equals(handler.LastBody?["arguments"]?["requests"]?[1]?["function"]?.GetValue<string>(), "configuration", StringComparison.Ordinal), "http journal batch should preserve zero-argument requests");
+        Assert(string.Equals(batchResult?[0]?["ok"]?.GetValue<string>(), "batch", StringComparison.Ordinal), "http journal batch should parse array response");
     }
 
     private void ValidateGatewayProjectionFileSystem()
@@ -864,8 +914,19 @@ public sealed class GrammarValidationWorker : BackgroundService
                         ? "unpin"
                 : request.RequestUri?.AbsolutePath.EndsWith("/size", StringComparison.OrdinalIgnoreCase) == true
                     ? "size"
-                    : request.RequestUri?.AbsolutePath.EndsWith("/peers", StringComparison.OrdinalIgnoreCase) == true
-                        ? "peers"
+                    : request.RequestUri?.AbsolutePath.EndsWith("/bridges", StringComparison.OrdinalIgnoreCase) == true
+                        ? "bridges"
+                        : request.RequestUri?.AbsolutePath.EndsWith("/interface/json", StringComparison.OrdinalIgnoreCase) == true
+                            ? (LastBody?["function"]?.GetValue<string>() switch
+                            {
+                                "set!" => "set",
+                                "pin!" => "pin",
+                                "unpin!" => "unpin",
+                                "size" => "size",
+                                "bridges" => "bridges",
+                                "general-batch!" => "batch",
+                                _ => "get"
+                            })
                         : "get";
 
             HttpContent content;
@@ -878,7 +939,7 @@ public sealed class GrammarValidationWorker : BackgroundService
                 JsonNode responseBody = NextResponseBody?.DeepClone() ?? operation switch
                 {
                     "size" => JsonValue.Create(10L)!,
-                    "peers" => new JsonArray("alice", "bob"),
+                    "bridges" => new JsonArray("alice", "bob"),
                     "pin" => JsonValue.Create(true)!,
                     "unpin" => JsonValue.Create(true)!,
                     _ => new JsonObject
@@ -907,7 +968,7 @@ public sealed class GrammarValidationWorker : BackgroundService
         }
     }
 
-    private sealed class ThrowingGatewayClient : IGeneralGatewayClient
+    private sealed class ThrowingGatewayClient : IGeneralInterfaceClient
     {
         private readonly Exception _exception;
 
@@ -922,6 +983,9 @@ public sealed class GrammarValidationWorker : BackgroundService
         public Task<JsonNode?> SetAsync(GatewaySetRequest request, CancellationToken cancellationToken)
             => Task.FromException<JsonNode?>(_exception);
 
+        public Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
+            => Task.FromException<JsonNode?>(_exception);
+
         public Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
             => Task.FromException<bool>(_exception);
 
@@ -931,11 +995,11 @@ public sealed class GrammarValidationWorker : BackgroundService
         public Task<long> SizeAsync(CancellationToken cancellationToken)
             => Task.FromResult(1L);
 
-        public Task<IReadOnlyList<string>> PeersAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 
-    private sealed class RecordingGatewayClient : IGeneralGatewayClient
+    private sealed class RecordingGatewayClient : IGeneralInterfaceClient
     {
         private readonly HashSet<string> _pinnedPaths = new(StringComparer.Ordinal);
 
@@ -1021,6 +1085,38 @@ public sealed class GrammarValidationWorker : BackgroundService
             return Task.FromResult<JsonNode?>(request.Content.DeepClone());
         }
 
+        public Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
+        {
+            var output = new JsonArray();
+            foreach (var operation in request.Requests)
+            {
+                if (operation.Function == "get" && operation.Arguments is not null)
+                {
+                    var requestPath = JsonSerializer.Deserialize<object[]>(operation.Arguments["path"]!.ToJsonString())
+                        ?? throw new InvalidDataException("Batch request path is invalid.");
+                    var pinned = operation.Arguments["pinned?"]?.GetValue<bool>() ?? false;
+                    var proof = operation.Arguments["proof?"]?.GetValue<bool>() ?? false;
+                    output.Add(GetAsync(new GatewayGetRequest(requestPath, pinned, proof), cancellationToken).GetAwaiter().GetResult());
+                    continue;
+                }
+
+                if (operation.Function != "set!" || operation.Arguments is null)
+                {
+                    return Task.FromException<JsonNode?>(new NotSupportedException());
+                }
+
+                var path = JsonSerializer.Deserialize<object[]>(operation.Arguments["path"]!.ToJsonString())
+                    ?? throw new InvalidDataException("Batch request path is invalid.");
+                var content = operation.Arguments["value"]?.DeepClone()
+                    ?? throw new InvalidDataException("Batch request value is missing.");
+                LastSetPathJson = JsonSerializer.Serialize(path);
+                LastSetContent = content;
+                output.Add(content.DeepClone());
+            }
+
+            return Task.FromResult<JsonNode?>(output);
+        }
+
         public Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
         {
             LastPinPathJson = JsonSerializer.Serialize(request.Path);
@@ -1038,11 +1134,11 @@ public sealed class GrammarValidationWorker : BackgroundService
         public Task<long> SizeAsync(CancellationToken cancellationToken)
             => Task.FromResult(1L);
 
-        public Task<IReadOnlyList<string>> PeersAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 
-    private sealed class ContextualPeerGatewayClient : IGeneralGatewayClient
+    private sealed class ContextualPeerGatewayClient : IGeneralInterfaceClient
     {
         public Task<JsonNode?> GetAsync(GatewayGetRequest request, CancellationToken cancellationToken)
         {
@@ -1065,6 +1161,27 @@ public sealed class GrammarValidationWorker : BackgroundService
         public Task<JsonNode?> SetAsync(GatewaySetRequest request, CancellationToken cancellationToken)
             => Task.FromException<JsonNode?>(new NotSupportedException());
 
+        public Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
+        {
+            var output = new JsonArray();
+            foreach (var operation in request.Requests)
+            {
+                if (operation.Function == "get" && operation.Arguments is not null)
+                {
+                    var path = JsonSerializer.Deserialize<object[]>(operation.Arguments["path"]!.ToJsonString())
+                        ?? throw new InvalidDataException("Batch request path is invalid.");
+                    var pinned = operation.Arguments["pinned?"]?.GetValue<bool>() ?? false;
+                    var proof = operation.Arguments["proof?"]?.GetValue<bool>() ?? false;
+                    output.Add(GetAsync(new GatewayGetRequest(path, pinned, proof), cancellationToken).GetAwaiter().GetResult());
+                    continue;
+                }
+
+                return Task.FromException<JsonNode?>(new NotSupportedException());
+            }
+
+            return Task.FromResult<JsonNode?>(output);
+        }
+
         public Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
             => Task.FromException<bool>(new NotSupportedException());
 
@@ -1074,7 +1191,7 @@ public sealed class GrammarValidationWorker : BackgroundService
         public Task<long> SizeAsync(CancellationToken cancellationToken)
             => Task.FromResult(1L);
 
-        public Task<IReadOnlyList<string>> PeersAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<string>>(new[] { "journal-4", "journal-7" });
     }
 }

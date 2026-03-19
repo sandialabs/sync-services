@@ -22,13 +22,15 @@ public sealed class HttpGatewayClientTests
         var result = await gateway.GetAsync(
             new GatewayGetRequest(
                 new object[] { new object[] { "*state*", "docs" } },
-                true),
+                true,
+                false),
             CancellationToken.None);
 
         Assert.Equal("http://gateway/api/v1/general/get", handler.LastRequestUri);
         Assert.Equal("Bearer secret-token", handler.LastAuthorization);
         Assert.Equal("""[["*state*","docs"]]""", handler.LastBody?["path"]?.ToJsonString());
-        Assert.True(handler.LastBody?["details?"]?.GetValue<bool>());
+        Assert.True(handler.LastBody?["pinned?"]?.GetValue<bool>());
+        Assert.False(handler.LastBody?["proof?"]?.GetValue<bool>() ?? true);
         Assert.Equal("get", result?["ok"]?.GetValue<string>());
     }
 
@@ -57,7 +59,45 @@ public sealed class HttpGatewayClientTests
     }
 
     [Fact]
-    public async Task PeersAsync_TreatsEmptyBodyAsEmptyPeerList()
+    public async Task BatchAsync_SendsGeneralBatchRequestShape()
+    {
+        var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://gateway/api/v1/", UriKind.Absolute),
+            Timeout = TimeSpan.FromSeconds(5),
+        };
+        using var gateway = new HttpGatewayClient(httpClient, "secret-token");
+
+        var request = new GatewayBatchRequest(
+            new[]
+            {
+                new GatewayBatchOperation(
+                    "set!",
+                    new JsonObject
+                    {
+                        ["path"] = JsonNode.Parse("""[["*state*","docs","a.txt"]]"""),
+                        ["value"] = JsonNode.Parse("""{"*type/string*":"a"}"""),
+                    }),
+                new GatewayBatchOperation(
+                    "configuration",
+                    null),
+            });
+
+        var result = await gateway.BatchAsync(request, CancellationToken.None);
+
+        Assert.Equal("http://gateway/api/v1/general/general-batch", handler.LastRequestUri);
+        Assert.Equal("Bearer secret-token", handler.LastAuthorization);
+        Assert.Equal("set!", handler.LastBody?["requests"]?[0]?["function"]?.GetValue<string>());
+        Assert.Equal("""[["*state*","docs","a.txt"]]""", handler.LastBody?["requests"]?[0]?["arguments"]?["path"]?.ToJsonString());
+        Assert.Equal("""{"*type/string*":"a"}""", handler.LastBody?["requests"]?[0]?["arguments"]?["value"]?.ToJsonString());
+        Assert.Equal("configuration", handler.LastBody?["requests"]?[1]?["function"]?.GetValue<string>());
+        Assert.Null(handler.LastBody?["requests"]?[1]?["arguments"]);
+        Assert.Equal("batch", result?[0]?["ok"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task BridgesAsync_TreatsEmptyBodyAsEmptyBridgeList()
     {
         var handler = new RecordingHttpMessageHandler
         {
@@ -71,9 +111,71 @@ public sealed class HttpGatewayClientTests
         };
         using var gateway = new HttpGatewayClient(httpClient, null);
 
-        var peers = await gateway.PeersAsync(CancellationToken.None);
+        var bridges = await gateway.BridgesAsync(CancellationToken.None);
 
-        Assert.Empty(peers);
+        Assert.Empty(bridges);
+    }
+
+    [Fact]
+    public async Task JournalClient_GetAsync_SendsDirectFunctionEnvelope()
+    {
+        var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://journal/interface/json", UriKind.Absolute),
+            Timeout = TimeSpan.FromSeconds(5),
+        };
+        using var journal = new HttpJournalClient(httpClient, "secret-token");
+
+        var result = await journal.GetAsync(
+            new GatewayGetRequest(
+                new object[] { new object[] { "*state*", "docs" } },
+                true,
+                false),
+            CancellationToken.None);
+
+        Assert.Equal("http://journal/interface/json", handler.LastRequestUri);
+        Assert.Null(handler.LastAuthorization);
+        Assert.Equal("get", handler.LastBody?["function"]?.GetValue<string>());
+        Assert.Equal("secret-token", handler.LastBody?["authentication"]?["*type/string*"]?.GetValue<string>());
+        Assert.Equal("""[["*state*","docs"]]""", handler.LastBody?["arguments"]?["path"]?.ToJsonString());
+        Assert.True(handler.LastBody?["arguments"]?["pinned?"]?.GetValue<bool>());
+        Assert.False(handler.LastBody?["arguments"]?["proof?"]?.GetValue<bool>() ?? true);
+        Assert.Equal("get", result?["ok"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task JournalClient_BatchAsync_SendsDirectGeneralBatchEnvelope()
+    {
+        var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://journal/interface/json", UriKind.Absolute),
+            Timeout = TimeSpan.FromSeconds(5),
+        };
+        using var journal = new HttpJournalClient(httpClient, "secret-token");
+
+        var result = await journal.BatchAsync(
+            new GatewayBatchRequest(
+                new[]
+                {
+                    new GatewayBatchOperation(
+                        "set!",
+                        new JsonObject
+                        {
+                            ["path"] = JsonNode.Parse("""[["*state*","docs","a.txt"]]"""),
+                            ["value"] = JsonNode.Parse("""{"*type/string*":"a"}"""),
+                        }),
+                    new GatewayBatchOperation("configuration", null),
+                }),
+            CancellationToken.None);
+
+        Assert.Equal("http://journal/interface/json", handler.LastRequestUri);
+        Assert.Equal("general-batch!", handler.LastBody?["function"]?.GetValue<string>());
+        Assert.Equal("secret-token", handler.LastBody?["authentication"]?["*type/string*"]?.GetValue<string>());
+        Assert.Equal("set!", handler.LastBody?["arguments"]?["requests"]?[0]?["function"]?.GetValue<string>());
+        Assert.Equal("configuration", handler.LastBody?["arguments"]?["requests"]?[1]?["function"]?.GetValue<string>());
+        Assert.Equal("batch", result?[0]?["ok"]?.GetValue<string>());
     }
 
     private sealed class RecordingHttpMessageHandler : HttpMessageHandler
@@ -116,6 +218,23 @@ public sealed class HttpGatewayClientTests
             {
                 responseBody = """{"ok":"set"}""";
             }
+            else if (request.RequestUri?.AbsolutePath.EndsWith("/general/general-batch", StringComparison.Ordinal) == true)
+            {
+                responseBody = """[{"ok":"batch"}]""";
+            }
+            else if (request.RequestUri?.AbsolutePath.EndsWith("/interface/json", StringComparison.Ordinal) == true)
+            {
+                var functionName = LastBody?["function"]?.GetValue<string>();
+                responseBody = functionName switch
+                {
+                    "general-batch!" => """[{"ok":"batch"}]""",
+                    "size" => "10",
+                    "bridges" => """["alice","bob"]""",
+                    "pin!" or "unpin!" => "true",
+                    "set!" => """{"ok":"set"}""",
+                    _ => """{"ok":"get"}""",
+                };
+            }
             else if (request.RequestUri?.AbsolutePath.EndsWith("/general/pin", StringComparison.Ordinal) == true ||
                      request.RequestUri?.AbsolutePath.EndsWith("/general/unpin", StringComparison.Ordinal) == true)
             {
@@ -125,7 +244,7 @@ public sealed class HttpGatewayClientTests
             {
                 responseBody = "10";
             }
-            else if (request.RequestUri?.AbsolutePath.EndsWith("/general/peers", StringComparison.Ordinal) == true && !string.IsNullOrEmpty(responseBody))
+            else if (request.RequestUri?.AbsolutePath.EndsWith("/general/bridges", StringComparison.Ordinal) == true && !string.IsNullOrEmpty(responseBody))
             {
                 responseBody = """["alice","bob"]""";
             }

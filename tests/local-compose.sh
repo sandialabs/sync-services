@@ -10,7 +10,6 @@ fi
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 COMPOSE_DIR="$ROOT_DIR/compose/general"
 COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
-CUSTOM_SETUP_FILE="$ROOT_DIR/tests/custom-setup.sh"
 
 PORT="${PORT:-8192}"
 SMB_PORT="${SMB_PORT:-445}"
@@ -24,8 +23,8 @@ CONNECT_TIMEOUT_SECONDS="${CONNECT_TIMEOUT_SECONDS:-2}"
 REQUEST_TIMEOUT_SECONDS="${REQUEST_TIMEOUT_SECONDS:-5}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$COMPOSE_DIR")}"
 LOCAL_COMPOSE_FORCE_HTTP="${LOCAL_COMPOSE_FORCE_HTTP:-1}"
-ENABLE_FILE_SYSTEM="${ENABLE_FILE_SYSTEM:-1}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-}"
+CUSTOM_SETUP_FILE="${CUSTOM_SETUP_FILE:-}"
 
 cleanup_mode="down"
 server_pid=""
@@ -90,11 +89,7 @@ validate_local_lisp_directory() {
 }
 
 dc() {
-    if [ "$ENABLE_FILE_SYSTEM" = "1" ]; then
-        docker compose -f "$COMPOSE_FILE" --profile filesystem "$@"
-    else
-        docker compose -f "$COMPOSE_FILE" "$@"
-    fi
+    docker compose -f "$COMPOSE_FILE" "$@"
 }
 
 has_existing_named_volumes() {
@@ -152,7 +147,7 @@ trap on_interrupt INT TERM
 CUSTOM_SETUP=""
 if [ -x "$CUSTOM_SETUP_FILE" ]; then
     CUSTOM_SETUP_SCRIPT="$("$CUSTOM_SETUP_FILE")"
-    CUSTOM_SETUP="$(printf "%s" "$CUSTOM_SETUP_SCRIPT" | base64 | tr -d '\n')"
+    CUSTOM_SETUP="$(printf "%s" "$CUSTOM_SETUP_SCRIPT")"
 fi
 
 LISP_REPOSITORY_ARG=""
@@ -194,6 +189,11 @@ build_and_retag() {
     remote_tag="$3"
     lisp_repository="${4:-}"
     build_platform="${5:-$DOCKER_PLATFORM}"
+    no_cache=""
+
+    if [ -n "$lisp_repository" ]; then
+        no_cache="--no-cache"
+    fi
 
     echo "Building $local_tag ..."
     if docker buildx version >/dev/null 2>&1; then
@@ -201,6 +201,7 @@ build_and_retag() {
             if [ -n "$build_platform" ]; then
                 docker buildx build \
                     --load \
+                    $no_cache \
                     --platform "$build_platform" \
                     --add-host host.docker.internal:host-gateway \
                     --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
@@ -210,6 +211,7 @@ build_and_retag() {
             else
                 docker buildx build \
                     --load \
+                    $no_cache \
                     --add-host host.docker.internal:host-gateway \
                     --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
                     --build-arg LISP_REPOSITORY="$lisp_repository" \
@@ -236,6 +238,7 @@ build_and_retag() {
         if [ -n "$lisp_repository" ]; then
             if [ -n "$build_platform" ]; then
                 docker build \
+                    $no_cache \
                     --platform "$build_platform" \
                     --add-host host.docker.internal:host-gateway \
                     --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
@@ -244,6 +247,7 @@ build_and_retag() {
                     "$context"
             else
                 docker build \
+                    $no_cache \
                     --add-host host.docker.internal:host-gateway \
                     --build-arg CUSTOM_SETUP="$CUSTOM_SETUP" \
                     --build-arg LISP_REPOSITORY="$lisp_repository" \
@@ -275,12 +279,9 @@ build_and_retag "$ROOT_DIR/services/gateway" "$GATEWAY_LOCAL_TAG" "$GATEWAY_REMO
 build_and_retag "$ROOT_DIR/services/explorer" "$EXPLORER_LOCAL_TAG" "$EXPLORER_REMOTE_TAG"
 build_and_retag "$ROOT_DIR/services/workbench" "$WORKBENCH_LOCAL_TAG" "$WORKBENCH_REMOTE_TAG"
 build_and_retag "$ROOT_DIR/services/router" "$ROUTER_LOCAL_TAG" "$ROUTER_REMOTE_TAG"
-
-if [ "$ENABLE_FILE_SYSTEM" = "1" ]; then
-    build_and_retag "$ROOT_DIR/services/file-system" "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_REMOTE_TAG"
-    echo "Tagging $FILE_SYSTEM_LOCAL_TAG as $FILE_SYSTEM_IMAGE ..."
-    docker tag "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_IMAGE"
-fi
+build_and_retag "$ROOT_DIR/services/file-system" "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_REMOTE_TAG"
+echo "Tagging $FILE_SYSTEM_LOCAL_TAG as $FILE_SYSTEM_IMAGE ..."
+docker tag "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_IMAGE"
 
 export SECRET PERIOD WINDOW PORT SMB_PORT COMPOSE_PROJECT_NAME TLS_CERT_HOST_PATH TLS_KEY_HOST_PATH FILE_SYSTEM_IMAGE
 
@@ -375,53 +376,51 @@ if [ "$control_authorized_status" != "200" ]; then
     exit 1
 fi
 
-if [ "$ENABLE_FILE_SYSTEM" = "1" ]; then
-    if ! command -v smbclient >/dev/null 2>&1; then
-        echo "FAIL: ENABLE_FILE_SYSTEM=1 requires smbclient to be installed"
+if ! command -v smbclient >/dev/null 2>&1; then
+    echo "FAIL: smbclient is required for local-compose smoke validation"
+    exit 1
+fi
+
+echo "Waiting for SMB file-system service on port $SMB_PORT..."
+elapsed=0
+while [ "$elapsed" -lt "$TIMEOUT_SECONDS" ]; do
+    if smbclient //127.0.0.1/sync -N -p "$SMB_PORT" -c 'ls' >/tmp/sync-services-fs-root-ls.log 2>&1; then
+        break
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+done
+if [ "$elapsed" -ge "$TIMEOUT_SECONDS" ]; then
+    echo "FAIL: timed out waiting for SMB file-system service on port $SMB_PORT"
+    cat /tmp/sync-services-fs-root-ls.log 2>/dev/null || true
+    exit 1
+fi
+
+fs_root_listing="$(cat /tmp/sync-services-fs-root-ls.log)"
+for required in stage ledger control; do
+    if ! printf "%s" "$fs_root_listing" | grep -q " $required "; then
+        echo "FAIL: expected SMB root listing to contain '$required'"
+        printf "%s\n" "$fs_root_listing"
         exit 1
     fi
+done
 
-    echo "Waiting for SMB file-system service on port $SMB_PORT..."
-    elapsed=0
-    while [ "$elapsed" -lt "$TIMEOUT_SECONDS" ]; do
-        if smbclient //127.0.0.1/sync -N -p "$SMB_PORT" -c 'ls' >/tmp/sync-services-fs-root-ls.log 2>&1; then
-            break
-        fi
-        sleep 2
-        elapsed=$((elapsed + 2))
-    done
-    if [ "$elapsed" -ge "$TIMEOUT_SECONDS" ]; then
-        echo "FAIL: timed out waiting for SMB file-system service on port $SMB_PORT"
-        cat /tmp/sync-services-fs-root-ls.log 2>/dev/null || true
-        exit 1
-    fi
+fs_tmp_dir="/tmp/sync-services-fs-smoke"
+fs_local_file="$fs_tmp_dir/local.txt"
+fs_download_file="$fs_tmp_dir/downloaded.txt"
+mkdir -p "$fs_tmp_dir"
+printf "compose filesystem smoke\n" > "$fs_local_file"
+rm -f "$fs_download_file"
 
-    fs_root_listing="$(cat /tmp/sync-services-fs-root-ls.log)"
-    for required in stage ledger control; do
-        if ! printf "%s" "$fs_root_listing" | grep -q " $required "; then
-            echo "FAIL: expected SMB root listing to contain '$required'"
-            printf "%s\n" "$fs_root_listing"
-            exit 1
-        fi
-    done
+if ! smbclient //127.0.0.1/sync -N -p "$SMB_PORT" -c "cd stage; put $fs_local_file compose-smoke.txt; get compose-smoke.txt $fs_download_file; del compose-smoke.txt" >/tmp/sync-services-fs-stage.log 2>&1; then
+    echo "FAIL: SMB stage smoke failed"
+    cat /tmp/sync-services-fs-stage.log
+    exit 1
+fi
 
-    fs_tmp_dir="/tmp/sync-services-fs-smoke"
-    fs_local_file="$fs_tmp_dir/local.txt"
-    fs_download_file="$fs_tmp_dir/downloaded.txt"
-    mkdir -p "$fs_tmp_dir"
-    printf "compose filesystem smoke\n" > "$fs_local_file"
-    rm -f "$fs_download_file"
-
-    if ! smbclient //127.0.0.1/sync -N -p "$SMB_PORT" -c "cd stage; put $fs_local_file compose-smoke.txt; get compose-smoke.txt $fs_download_file; del compose-smoke.txt" >/tmp/sync-services-fs-stage.log 2>&1; then
-        echo "FAIL: SMB stage smoke failed"
-        cat /tmp/sync-services-fs-stage.log
-        exit 1
-    fi
-
-    if ! cmp -s "$fs_local_file" "$fs_download_file"; then
-        echo "FAIL: SMB stage round-trip content mismatch"
-        exit 1
-    fi
+if ! cmp -s "$fs_local_file" "$fs_download_file"; then
+    echo "FAIL: SMB stage round-trip content mismatch"
+    exit 1
 fi
 
 echo "PASS: smoke checks succeeded."

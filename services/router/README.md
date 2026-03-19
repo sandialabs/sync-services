@@ -18,3 +18,22 @@ If both files exist, router uses TLS config with:
 - `443` for proxied application routes
 
 If either file is missing, router uses HTTP-only config.
+
+## Routed Paths
+
+Canonical public paths:
+- `/api/` -> gateway API
+- `/docs` -> gateway docs
+- `/healthz` -> gateway health probe
+- `/readyz` -> gateway readiness probe
+- `/metrics` -> gateway Prometheus metrics
+- `/explorer` -> explorer UI
+- `/workbench` -> workbench UI
+
+Compatibility/internal path retained for bridge communication:
+- `/interface` -> raw journal interface
+
+`/interface` is intentionally kept for existing journal-to-journal flows such as social-agent bridge wiring, but it is not the preferred public integration surface.
+
+Request body limit:
+- router currently accepts up to `64 MiB` bodies

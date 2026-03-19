@@ -67,7 +67,7 @@ assert_not_contains() {
 
 run_backend() {
     if [ -n "$SYNC_FS_GATEWAY_BASE_URL" ]; then
-        SYNC_FS_BACKEND=http-gateway-readonly \
+        SYNC_FS_BACKEND=http-journal-readonly \
         SYNC_FS_GATEWAY_BASE_URL="$SYNC_FS_GATEWAY_BASE_URL" \
         SYNC_FS_GATEWAY_AUTH_TOKEN="$SYNC_FS_GATEWAY_AUTH_TOKEN" \
         "$ROOT_DIR/tests/docker-run.sh" >/dev/null

@@ -10,7 +10,9 @@ SYNC_FS_BACKEND="${SYNC_FS_BACKEND:-}"
 SYNC_FS_EXIT_AFTER_STARTUP="${SYNC_FS_EXIT_AFTER_STARTUP:-false}"
 SYNC_FS_GATEWAY_BASE_URL="${SYNC_FS_GATEWAY_BASE_URL:-}"
 SYNC_FS_GATEWAY_AUTH_TOKEN="${SYNC_FS_GATEWAY_AUTH_TOKEN:-}"
+SYNC_FS_JOURNAL_JSON_URL="${SYNC_FS_JOURNAL_JSON_URL:-}"
 CONTAINER_GATEWAY_BASE_URL="$SYNC_FS_GATEWAY_BASE_URL"
+CONTAINER_JOURNAL_JSON_URL="$SYNC_FS_JOURNAL_JSON_URL"
 
 if [ -z "$SYNC_FS_BACKEND" ] && [ -n "$SYNC_FS_GATEWAY_BASE_URL" ]; then
     if [ -z "$SYNC_FS_GATEWAY_AUTH_TOKEN" ]; then
@@ -19,7 +21,7 @@ if [ -z "$SYNC_FS_BACKEND" ] && [ -n "$SYNC_FS_GATEWAY_BASE_URL" ]; then
         exit 1
     fi
 
-    SYNC_FS_BACKEND="http-gateway-stage"
+    SYNC_FS_BACKEND="http-journal-stage"
 fi
 
 case "$CONTAINER_GATEWAY_BASE_URL" in
@@ -28,6 +30,15 @@ case "$CONTAINER_GATEWAY_BASE_URL" in
         ;;
     http://localhost*|https://localhost*)
         CONTAINER_GATEWAY_BASE_URL="$(printf '%s' "$CONTAINER_GATEWAY_BASE_URL" | sed 's#://localhost#://host.docker.internal#')"
+        ;;
+esac
+
+case "$CONTAINER_JOURNAL_JSON_URL" in
+    http://127.0.0.1*|https://127.0.0.1*)
+        CONTAINER_JOURNAL_JSON_URL="$(printf '%s' "$CONTAINER_JOURNAL_JSON_URL" | sed 's#://127\.0\.0\.1#://host.docker.internal#')"
+        ;;
+    http://localhost*|https://localhost*)
+        CONTAINER_JOURNAL_JSON_URL="$(printf '%s' "$CONTAINER_JOURNAL_JSON_URL" | sed 's#://localhost#://host.docker.internal#')"
         ;;
 esac
 
@@ -47,6 +58,7 @@ if [ -n "$DOCKER_PLATFORM" ]; then
         ${SYNC_FS_BACKEND:+-e SYNC_FS_Backend="$SYNC_FS_BACKEND"} \
         -e SYNC_FS_ExitAfterStartup="$SYNC_FS_EXIT_AFTER_STARTUP" \
         ${CONTAINER_GATEWAY_BASE_URL:+-e SYNC_FS_GatewayBaseUrl="$CONTAINER_GATEWAY_BASE_URL"} \
+        ${CONTAINER_JOURNAL_JSON_URL:+-e SYNC_FS_JournalJsonUrl="$CONTAINER_JOURNAL_JSON_URL"} \
         ${SYNC_FS_GATEWAY_AUTH_TOKEN:+-e SYNC_FS_GatewayAuthToken="$SYNC_FS_GATEWAY_AUTH_TOKEN"} \
         "$IMAGE_TAG" >/dev/null
 else
@@ -60,6 +72,7 @@ else
         ${SYNC_FS_BACKEND:+-e SYNC_FS_Backend="$SYNC_FS_BACKEND"} \
         -e SYNC_FS_ExitAfterStartup="$SYNC_FS_EXIT_AFTER_STARTUP" \
         ${CONTAINER_GATEWAY_BASE_URL:+-e SYNC_FS_GatewayBaseUrl="$CONTAINER_GATEWAY_BASE_URL"} \
+        ${CONTAINER_JOURNAL_JSON_URL:+-e SYNC_FS_JournalJsonUrl="$CONTAINER_JOURNAL_JSON_URL"} \
         ${SYNC_FS_GATEWAY_AUTH_TOKEN:+-e SYNC_FS_GatewayAuthToken="$SYNC_FS_GATEWAY_AUTH_TOKEN"} \
         "$IMAGE_TAG" >/dev/null
 fi
@@ -70,5 +83,8 @@ if [ -n "$SYNC_FS_BACKEND" ]; then
 fi
 if [ -n "$SYNC_FS_GATEWAY_BASE_URL" ] && [ "$CONTAINER_GATEWAY_BASE_URL" != "$SYNC_FS_GATEWAY_BASE_URL" ]; then
     echo "Gateway URL inside container: $CONTAINER_GATEWAY_BASE_URL"
+fi
+if [ -n "$SYNC_FS_JOURNAL_JSON_URL" ] && [ "$CONTAINER_JOURNAL_JSON_URL" != "$SYNC_FS_JOURNAL_JSON_URL" ]; then
+    echo "Journal JSON URL inside container: $CONTAINER_JOURNAL_JSON_URL"
 fi
 echo "Inspect logs with: docker logs -f $CONTAINER_NAME"

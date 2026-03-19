@@ -8,7 +8,7 @@ namespace FileSystem.Server;
 public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFileSystem
 {
     private readonly string _name;
-    private readonly IGeneralGatewayClient _gateway;
+    private readonly IGeneralInterfaceClient _gateway;
     private readonly object _gate = new();
     private readonly InMemoryFileSystem _cache;
     private readonly HashSet<string> _hydratedPaths = new(StringComparer.OrdinalIgnoreCase);
@@ -16,9 +16,10 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
     private readonly HashSet<string> _deletedPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _markerBackedDirectories = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, bool> _discoveredPinStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _pendingWritableStageFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly bool _enableStageWrites;
 
-    public GatewayProjectionFileSystem(string name, IGeneralGatewayClient gateway, bool enableStageWrites = false)
+    public GatewayProjectionFileSystem(string name, IGeneralInterfaceClient gateway, bool enableStageWrites = false)
     {
         _name = name;
         _gateway = gateway;
@@ -201,13 +202,26 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             var contentNode = BuildStageContentNode(normalizedSource);
             ExecuteWrite(normalizedDestination, () =>
             {
-                _gateway.SetAsync(new GatewaySetRequest(destinationInfo.JournalPath, contentNode), CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
-            });
-            ExecuteWrite(normalizedSource, () =>
-            {
-                _gateway.SetAsync(new GatewaySetRequest(sourceInfo.JournalPath, JsonFileSystemLoader.CreateNothingContentNode()), CancellationToken.None)
+                _gateway.BatchAsync(
+                        new GatewayBatchRequest(
+                            new[]
+                            {
+                                new GatewayBatchOperation(
+                                    "set!",
+                                    new JsonObject
+                                    {
+                                        ["path"] = JsonSerializer.SerializeToNode(destinationInfo.JournalPath),
+                                        ["value"] = contentNode.DeepClone(),
+                                    }),
+                                new GatewayBatchOperation(
+                                    "set!",
+                                    new JsonObject
+                                    {
+                                        ["path"] = JsonSerializer.SerializeToNode(sourceInfo.JournalPath),
+                                        ["value"] = JsonFileSystemLoader.CreateNothingContentNode(),
+                                    }),
+                            }),
+                        CancellationToken.None)
                     .GetAwaiter()
                     .GetResult();
             });
@@ -373,7 +387,8 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                     new GatewayStageWriteStream(
                         mode == FileMode.Append ? RenderPinControlFileBytes() : Array.Empty<byte>(),
                         append: mode == FileMode.Append,
-                        onCommit: ReplacePinnedSet));
+                        onCommit: ReplacePinnedSet,
+                        onClosed: static () => { }));
             }
 
             throw new NotSupportedException("Unsupported control pin file operation.");
@@ -423,6 +438,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 _deletedPaths.Remove(normalized);
             }
 
+            ExecuteWrite(normalized, () => EnsureExistingPathMaterializedForWriteBatched(normalized, info, mode));
             ExecuteWrite(normalized, () => EnsureParentDirectoryMaterialized(normalized));
             if (mode == FileMode.CreateNew && CacheEntryExists(normalized))
             {
@@ -435,10 +451,12 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             _deletedPaths.Remove(normalized);
             _cache.SeedFile(normalized, initialContent, metadata: null, control: ToWritableFileControl(existingControl));
             _hydratedPaths.Add(normalized);
+            TrackPendingWritableStageFile(normalized);
             return new GatewayStageWriteStream(
                 initialContent,
                 append: mode == FileMode.Append,
-                onCommit: bytes => CommitStageFile(normalized, journalPath, bytes));
+                onCommit: bytes => CommitStageFile(normalized, journalPath, bytes),
+                onClosed: () => UntrackPendingWritableStageFile(normalized));
         }
     }
 
@@ -520,6 +538,13 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                     updatedMode,
                     existingControl?.Uid,
                     existingControl?.Gid));
+
+            if (IsPendingWritableStageFile(normalized))
+            {
+                _deletedPaths.Remove(normalized);
+                _hydratedPaths.Add(normalized);
+                return;
+            }
 
             var contentNode = BuildStageContentNode(normalized);
             ExecuteWrite(normalized, () =>
@@ -627,11 +652,11 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 return;
             case ProjectedPathKind.LedgerNodeContainer:
                 SeedSyntheticDirectory(normalized);
-                foreach (var peer in GetPeersForNodeContainer(normalized))
+                foreach (var bridge in GetBridgesForNodeContainer(normalized))
                 {
-                    var peerRoot = CombinePath(normalized, peer);
-                    SeedSyntheticDirectory(peerRoot);
-                    SeedChainNode(peerRoot);
+                    var bridgeRoot = CombinePath(normalized, bridge);
+                    SeedSyntheticDirectory(bridgeRoot);
+                    SeedChainNode(bridgeRoot);
                 }
                 return;
             case ProjectedPathKind.LedgerPreviousContainer:
@@ -658,7 +683,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         {
             try
             {
-                var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(markerJournalPath, true), CancellationToken.None)
+                var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(markerJournalPath, true, false), CancellationToken.None)
                     .GetAwaiter()
                     .GetResult();
                 if (gatewayValue is JsonObject obj &&
@@ -691,10 +716,15 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         }
 
         var gatewayValue = _gateway.GetAsync(
-                new GatewayGetRequest(info.JournalPath, true),
+                new GatewayGetRequest(info.JournalPath, true, false),
                 CancellationToken.None)
             .GetAwaiter()
             .GetResult();
+        MaterializeContentPath(info, normalizedPath, gatewayValue);
+    }
+
+    private void MaterializeContentPath(ProjectedPathInfo info, string normalizedPath, JsonNode? gatewayValue)
+    {
         if (normalizedPath.StartsWith(@"\ledger\", StringComparison.OrdinalIgnoreCase))
         {
             _discoveredPinStates[normalizedPath] = IsPinnedGatewayValue(gatewayValue);
@@ -988,7 +1018,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
     {
         SeedSyntheticDirectory(path);
         SeedSyntheticDirectory(CombinePath(path, "state"));
-        SeedSyntheticDirectory(CombinePath(path, "peer"));
+        SeedSyntheticDirectory(CombinePath(path, "bridge"));
         SeedSyntheticDirectory(CombinePath(path, "previous"));
     }
 
@@ -1074,29 +1104,29 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         return result;
     }
 
-    private IReadOnlyList<string> GetPeersForNodeContainer(string normalizedPath)
+    private IReadOnlyList<string> GetBridgesForNodeContainer(string normalizedPath)
     {
-        if (string.Equals(normalizedPath, @"\ledger\peer", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedPath, @"\ledger\bridge", StringComparison.OrdinalIgnoreCase))
         {
-            return _gateway.PeersAsync(CancellationToken.None).GetAwaiter().GetResult();
+            return _gateway.BridgesAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
 
-        var peerListingPath = BuildPeerListingJournalPath(normalizedPath);
-        var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(peerListingPath, true), CancellationToken.None)
+        var bridgeListingPath = BuildBridgeListingJournalPath(normalizedPath);
+        var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(bridgeListingPath, true, false), CancellationToken.None)
             .GetAwaiter()
             .GetResult();
-        return ParsePeerListing(gatewayValue);
+        return ParseBridgeListing(gatewayValue);
     }
 
-    private static IReadOnlyList<object> BuildPeerListingJournalPath(string normalizedPath)
+    private static IReadOnlyList<object> BuildBridgeListingJournalPath(string normalizedPath)
     {
         var segments = NormalizePath(normalizedPath).Trim('\\')
             .Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (segments.Length < 2 ||
             !string.Equals(segments[0], "ledger", StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(segments[^1], "peer", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(segments[^1], "bridge", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidDataException($"Path is not a ledger peer container: {normalizedPath}");
+            throw new InvalidDataException($"Path is not a ledger bridge container: {normalizedPath}");
         }
 
         var ledgerParts = new List<object>();
@@ -1104,19 +1134,19 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         while (cursor < segments.Length)
         {
             var segment = segments[cursor];
-            if (string.Equals(segment, "peer", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(segment, "bridge", StringComparison.OrdinalIgnoreCase))
             {
                 if (cursor == segments.Length - 1)
                 {
                     EnsureCurrentLedgerContext(ledgerParts);
-                    EnsureCurrentPeerContext(ledgerParts);
-                    ledgerParts.Add(new object[] { "*peer*" });
+                    EnsureCurrentBridgeContext(ledgerParts);
+                    ledgerParts.Add(new object[] { "*bridge*" });
                     return ledgerParts;
                 }
 
                 EnsureCurrentLedgerContext(ledgerParts);
-                EnsureCurrentPeerContext(ledgerParts);
-                ledgerParts.Add(new object[] { "*peer*", segments[cursor + 1], "chain" });
+                EnsureCurrentBridgeContext(ledgerParts);
+                ledgerParts.Add(new object[] { "*bridge*", segments[cursor + 1], "chain" });
                 cursor += 2;
                 continue;
             }
@@ -1125,7 +1155,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             {
                 if (cursor == segments.Length - 1 || !int.TryParse(segments[cursor + 1], out var index))
                 {
-                    throw new InvalidDataException($"Ledger peer container path has invalid previous segment: {normalizedPath}");
+                    throw new InvalidDataException($"Ledger bridge container path has invalid previous segment: {normalizedPath}");
                 }
 
                 ledgerParts.Add(index);
@@ -1133,13 +1163,13 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 continue;
             }
 
-            throw new InvalidDataException($"Ledger peer container path has unsupported segment: {normalizedPath}");
+            throw new InvalidDataException($"Ledger bridge container path has unsupported segment: {normalizedPath}");
         }
 
-        throw new InvalidDataException($"Ledger peer container path is incomplete: {normalizedPath}");
+        throw new InvalidDataException($"Ledger bridge container path is incomplete: {normalizedPath}");
     }
 
-    private static IReadOnlyList<string> ParsePeerListing(JsonNode? gatewayValue)
+    private static IReadOnlyList<string> ParseBridgeListing(JsonNode? gatewayValue)
     {
         var content = gatewayValue is JsonObject obj && obj["content"] != null
             ? obj["content"]
@@ -1168,7 +1198,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 if (array[1] is JsonArray childArray)
                 {
                     return childArray
-                        .Select(ExtractPeerName)
+                        .Select(ExtractBridgeName)
                         .Where(name => !string.IsNullOrWhiteSpace(name))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
@@ -1179,7 +1209,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             if (array.Count > 0 && array[0] is JsonArray childList)
             {
                 return childList
-                    .Select(ExtractPeerName)
+                    .Select(ExtractBridgeName)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
@@ -1187,7 +1217,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             }
 
             return array
-                .Select(ExtractPeerName)
+                .Select(ExtractBridgeName)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
@@ -1197,7 +1227,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         return Array.Empty<string>();
     }
 
-    private static string ExtractPeerName(JsonNode? node)
+    private static string ExtractBridgeName(JsonNode? node)
     {
         if (node == null)
         {
@@ -1423,7 +1453,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
     private bool IsPinnedJournalPath(IReadOnlyList<object> journalPath)
     {
-        var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(journalPath, true), CancellationToken.None)
+        var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(journalPath, true, false), CancellationToken.None)
             .GetAwaiter()
             .GetResult();
         return IsPinnedGatewayValue(gatewayValue);
@@ -1478,9 +1508,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
     private void EnsureParentDirectoryMaterialized(string path)
     {
-        var normalized = NormalizePath(path);
-        var lastSlash = normalized.LastIndexOf('\\');
-        var parent = lastSlash <= 0 ? "\\" : normalized[..lastSlash];
+        var parent = GetParentPath(path);
         EnsureDirectoryMaterialized(parent);
     }
 
@@ -1535,6 +1563,87 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 throw;
             }
         }
+    }
+
+    private void EnsureExistingPathMaterializedForWriteBatched(string normalizedPath, ProjectedPathInfo info, FileMode mode)
+    {
+        var parentNormalizedPath = GetParentPath(normalizedPath);
+        if (!ShouldBatchStageWriteHydration(parentNormalizedPath, normalizedPath, info, mode))
+        {
+            EnsureExistingPathMaterializedForWrite(normalizedPath, mode);
+            return;
+        }
+
+        var parentInfo = ParsePath(parentNormalizedPath);
+        if (parentInfo.JournalPath == null || info.JournalPath == null)
+        {
+            EnsureExistingPathMaterializedForWrite(normalizedPath, mode);
+            return;
+        }
+
+        var batchResult = _gateway.BatchAsync(
+                new GatewayBatchRequest(
+                    new[]
+                    {
+                        CreateBatchGetOperation(parentInfo.JournalPath),
+                        CreateBatchGetOperation(info.JournalPath),
+                    }),
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        if (batchResult is not JsonArray results || results.Count < 2)
+        {
+            throw new InvalidDataException("Gateway batch get returned invalid result shape.");
+        }
+
+        MaterializeContentPath(parentInfo, parentNormalizedPath, results[0]);
+
+        try
+        {
+            MaterializeContentPath(info, normalizedPath, results[1]);
+        }
+        catch (FileNotFoundException)
+        {
+            if (mode == FileMode.Open)
+            {
+                throw;
+            }
+        }
+    }
+
+    private static GatewayBatchOperation CreateBatchGetOperation(IReadOnlyList<object> journalPath) =>
+        new(
+            "get",
+            new JsonObject
+            {
+                ["path"] = JsonSerializer.SerializeToNode(journalPath),
+                ["pinned?"] = true,
+                ["proof?"] = false,
+            });
+
+    private bool ShouldBatchStageWriteHydration(string parentNormalizedPath, string normalizedPath, ProjectedPathInfo info, FileMode mode)
+    {
+        if (mode == FileMode.CreateNew ||
+            _hydratedPaths.Contains(normalizedPath) ||
+            CacheEntryExists(normalizedPath))
+        {
+            return false;
+        }
+
+        var parentInfo = ParsePath(parentNormalizedPath);
+        if (parentInfo.Kind != ProjectedPathKind.StageContent ||
+            info.Kind != ProjectedPathKind.StageContent)
+        {
+            return false;
+        }
+
+        if (_hydratedPaths.Contains(parentNormalizedPath) || CacheEntryExists(parentNormalizedPath))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private bool IsDeletedChild(string parentPath, string childName)
@@ -1691,6 +1800,39 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         }
     }
 
+    private void TrackPendingWritableStageFile(string normalizedPath)
+    {
+        if (_pendingWritableStageFiles.TryGetValue(normalizedPath, out var count))
+        {
+            _pendingWritableStageFiles[normalizedPath] = count + 1;
+            return;
+        }
+
+        _pendingWritableStageFiles[normalizedPath] = 1;
+    }
+
+    private void UntrackPendingWritableStageFile(string normalizedPath)
+    {
+        lock (_gate)
+        {
+            if (!_pendingWritableStageFiles.TryGetValue(normalizedPath, out var count))
+            {
+                return;
+            }
+
+            if (count <= 1)
+            {
+                _pendingWritableStageFiles.Remove(normalizedPath);
+                return;
+            }
+
+            _pendingWritableStageFiles[normalizedPath] = count - 1;
+        }
+    }
+
+    private bool IsPendingWritableStageFile(string normalizedPath) =>
+        _pendingWritableStageFiles.ContainsKey(normalizedPath);
+
     private static bool IsPermissionError(GatewaySemanticException exception)
     {
         return exception.Code.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
@@ -1818,14 +1960,14 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             if (string.Equals(segment, "state", StringComparison.OrdinalIgnoreCase))
             {
                 EnsureCurrentLedgerContext(ledgerParts);
-                EnsureCurrentPeerContext(ledgerParts);
+                EnsureCurrentBridgeContext(ledgerParts);
 
                 var stateBlock = new object[] { "*state*" }.Concat(segments.Skip(cursor + 1).Cast<object>()).ToArray();
                 ledgerParts.Add(stateBlock);
                 return new ProjectedPathInfo(ProjectedPathKind.LedgerStateContent, ledgerParts);
             }
 
-            if (string.Equals(segment, "peer", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(segment, "bridge", StringComparison.OrdinalIgnoreCase))
             {
                 if (cursor == segments.Length - 1)
                 {
@@ -1833,8 +1975,8 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 }
 
                 EnsureCurrentLedgerContext(ledgerParts);
-                EnsureCurrentPeerContext(ledgerParts);
-                ledgerParts.Add(new object[] { "*peer*", segments[cursor + 1], "chain" });
+                EnsureCurrentBridgeContext(ledgerParts);
+                ledgerParts.Add(new object[] { "*bridge*", segments[cursor + 1], "chain" });
                 cursor += 2;
                 if (cursor == segments.Length)
                 {
@@ -1878,17 +2020,17 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         }
     }
 
-    private static void EnsureCurrentPeerContext(List<object> ledgerParts)
+    private static void EnsureCurrentBridgeContext(List<object> ledgerParts)
     {
         if (ledgerParts.Count == 0)
         {
             return;
         }
 
-        if (ledgerParts[^1] is object[] peerBlock &&
-            peerBlock.Length >= 3 &&
-            string.Equals(peerBlock[0] as string, "*peer*", StringComparison.Ordinal) &&
-            string.Equals(peerBlock[2] as string, "chain", StringComparison.Ordinal))
+        if (ledgerParts[^1] is object[] bridgeBlock &&
+            bridgeBlock.Length >= 3 &&
+            string.Equals(bridgeBlock[0] as string, "*bridge*", StringComparison.Ordinal) &&
+            string.Equals(bridgeBlock[2] as string, "chain", StringComparison.Ordinal))
         {
             ledgerParts.Add(-1);
         }
@@ -2083,13 +2225,15 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
     private sealed class GatewayStageWriteStream : MemoryStream, ISuppressibleCommitStream
     {
         private readonly Action<byte[]> _onCommit;
+        private readonly Action _onClosed;
         private bool _committed;
         private bool _suppressCommit;
 
-        public GatewayStageWriteStream(byte[] initialContent, bool append, Action<byte[]> onCommit)
+        public GatewayStageWriteStream(byte[] initialContent, bool append, Action<byte[]> onCommit, Action onClosed)
             : base()
         {
             _onCommit = onCommit;
+            _onClosed = onClosed;
             Write(initialContent, 0, initialContent.Length);
             Position = append ? Length : 0;
             if (!append)
@@ -2100,16 +2244,26 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && !_committed)
+            try
             {
-                _committed = true;
-                if (!_suppressCommit)
+                if (disposing && !_committed)
                 {
-                    _onCommit(ToArray());
+                    _committed = true;
+                    if (!_suppressCommit)
+                    {
+                        _onCommit(ToArray());
+                    }
                 }
             }
+            finally
+            {
+                if (disposing)
+                {
+                    _onClosed();
+                }
 
-            base.Dispose(disposing);
+                base.Dispose(disposing);
+            }
         }
 
         public void SuppressCommit()

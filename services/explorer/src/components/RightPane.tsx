@@ -27,14 +27,14 @@ const buildVersionPath = (
     return [versionOffset, ...basePath.slice(1)];
   }
 
-  // For peer journals - update the appropriate index in the path
+  // For bridged journals - update the appropriate index in the path
   const modifiedPath = [...basePath];
-  let peerCount = 0;
+  let bridgeCount = 0;
 
   for (let i = 0; i < modifiedPath.length; i++) {
     if (typeof modifiedPath[i] === 'number') {
-      peerCount++;
-      if (peerCount === tabIndex + 1) {
+      bridgeCount++;
+      if (bridgeCount === tabIndex + 1) {
         modifiedPath[i] = versionOffset;
         break;
       }
@@ -53,11 +53,11 @@ const getVersionAtTab = (path: JournalPath, tabIndex: number): number | null => 
     return typeof firstElement === 'number' ? firstElement : null;
   }
 
-  let peerCount = 0;
+  let bridgeCount = 0;
   for (const segment of path) {
     if (typeof segment === 'number') {
-      peerCount++;
-      if (peerCount === tabIndex + 1) {
+      bridgeCount++;
+      if (bridgeCount === tabIndex + 1) {
         return segment;
       }
     }
@@ -105,7 +105,7 @@ const RightPane: React.FC<RightPaneProps> = ({
     
     for (let i = 1; i < selectedPath.length - 1; i += 2) {
       const segment = selectedPath[i];
-      if (Array.isArray(segment) && segment[0] === '*peer*' && segment[2] === 'chain') {
+      if (Array.isArray(segment) && segment[0] === '*bridge*' && segment[2] === 'chain') {
         tabs.push(segment[1]);
       }
     }

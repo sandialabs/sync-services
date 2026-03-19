@@ -20,7 +20,9 @@ Run the container:
 ./tests/docker-run.sh
 ```
 
-If you provide both `SYNC_FS_GATEWAY_BASE_URL` and `SYNC_FS_GATEWAY_AUTH_TOKEN` without setting `SYNC_FS_BACKEND`, `docker-run.sh` now auto-selects `http-gateway-stage`.
+If you provide both `SYNC_FS_GATEWAY_BASE_URL` and `SYNC_FS_GATEWAY_AUTH_TOKEN` without setting `SYNC_FS_BACKEND`, `docker-run.sh` now auto-selects `http-journal-stage`.
+
+Gateway-backed modes remain available as an override, but direct journal JSON is now the preferred journal-backed path.
 
 The default backend is now `json`, using:
 
@@ -54,7 +56,7 @@ The current control-plane feature is:
   - only `/ledger/...` paths are valid in this file
   - `/stage/...` is never pinnable through the filesystem surface
 
-Each value object is expected to resemble a `get(..., details?=true)` result:
+Each value object is expected to resemble a `get(..., pinned?=true, proof?=false)` result:
 - `content`
 - `pinned?`
 
@@ -148,17 +150,21 @@ Environment variables use the `SYNC_FS_` prefix.
   - default: `/srv/share`
 - `SYNC_FS_Backend`
   - default: `json`
-  - supported values: `json`, `mock-gateway`, `mock-gateway-readonly`, `http-gateway-readonly`, `http-gateway-stage`, `memory`, `disk`
-  - helper behavior: if `SYNC_FS_GATEWAY_BASE_URL` and `SYNC_FS_GATEWAY_AUTH_TOKEN` are both set and `SYNC_FS_BACKEND` is unset, `./tests/docker-run.sh` auto-selects `http-gateway-stage`
+  - supported values: `json`, `mock-gateway`, `mock-gateway-readonly`, `http-gateway-readonly`, `http-gateway-stage`, `http-journal-readonly`, `http-journal-stage`, `memory`, `disk`
+  - helper behavior: if `SYNC_FS_GATEWAY_BASE_URL` and `SYNC_FS_GATEWAY_AUTH_TOKEN` are both set and `SYNC_FS_BACKEND` is unset, `./tests/docker-run.sh` auto-selects `http-journal-stage`
 - `SYNC_FS_JsonFixturePath`
   - default: `/workspace/tests/static-tree.json`
   - used when `SYNC_FS_Backend=json`
 - `SYNC_FS_GatewayBaseUrl`
   - default: `http://gateway/api/v1`
+  - used only by the gateway-backed backends (`http-gateway-readonly`, `http-gateway-stage`)
+- `SYNC_FS_JournalJsonUrl`
+  - default: `http://journal/interface/json`
+  - used by direct journal backends (`http-journal-readonly`, `http-journal-stage`)
 - `SYNC_FS_GatewayAuthToken`
   - optional for now; required later for real gateway integration
 - `SYNC_FS_GatewayTimeoutMs`
-  - default: `10000`
+  - default: `30000`
 - `SYNC_FS_ExitAfterStartup`
   - default: `false`
   - useful for one-shot probe runs
@@ -180,8 +186,9 @@ Environment variables use the `SYNC_FS_` prefix.
 ## Notes
 
 - Host-installed `.NET` is not required for the default workflow.
-- This service is intentionally starting small. The current JSON backend is a projection scaffold that now resembles ledger `details?=true` results more closely, but it is not yet the final journal-backed namespace model.
+- This service is intentionally starting small. The current JSON backend is a projection scaffold that now resembles ledger `get` metadata results more closely, but it is not yet the final journal-backed namespace model.
 - `json` currently runs through a mock gateway client backed by `tests/static-tree.json`, so the projection path is now aligned with future gateway integration instead of direct fixture wiring.
-- A real `HttpGatewayClient` now exists and is used by the gateway-backed backends.
+- A direct `HttpJournalClient` now exists and is the preferred backend for journal-backed SMB paths.
+- `HttpGatewayClient` remains available for comparison and fallback.
 - Live `/stage` directory mutation now uses the spec’s hidden `*directory*` marker path in the gateway layer rather than writing a direct directory value at the visible directory path.
-- The gateway-backed `/stage` write path normalizes gateway auth/missing/transport failures into filesystem-style exceptions instead of leaking raw gateway errors out of commit-time writes.
+- The HTTP-backed `/stage` write path normalizes auth/missing/transport failures into filesystem-style exceptions instead of leaking raw upstream errors out of commit-time writes.
