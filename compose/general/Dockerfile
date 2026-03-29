@@ -1,6 +1,6 @@
 FROM ghcr.io/sandialabs/sync-journal/journal-sdk:1.2.0
 
-ARG LISP_REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/35cf7760020ef8602e97cede88291ec7d48c74bd/lisp/
+ARG LISP_REPOSITORY=https://raw.githubusercontent.com/sandialabs/sync-records/4cd0bcb6d7a5221c3e34d7b16eda27384a2e239e/lisp/
 ARG CUSTOM_SETUP=""
 
 RUN set -eu; \
