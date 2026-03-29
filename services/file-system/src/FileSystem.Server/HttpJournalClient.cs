@@ -26,14 +26,19 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
 
     public Task<JsonNode?> GetAsync(GatewayGetRequest request, CancellationToken cancellationToken)
     {
+        var indexedPath = IsIndexedPath(request.Path);
         var arguments = new JsonObject
         {
             ["path"] = JsonSerializer.SerializeToNode(request.Path),
-            ["pinned?"] = request.Pinned,
-            ["proof?"] = request.Proof,
         };
 
-        return CallFunctionAsync("get", arguments, requiresAuth: true, cancellationToken);
+        if (indexedPath)
+        {
+            arguments["pinned?"] = request.Pinned;
+            arguments["proof?"] = request.Proof;
+        }
+
+        return CallFunctionAsync(indexedPath ? "resolve" : "get", arguments, requiresAuth: true, cancellationToken);
     }
 
     public Task<JsonNode?> SetAsync(GatewaySetRequest request, CancellationToken cancellationToken)
@@ -70,7 +75,7 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
             ["requests"] = requests,
         };
 
-        return CallFunctionAsync("general-batch!", arguments, requiresAuth: true, cancellationToken);
+        return CallFunctionAsync("batch!", arguments, requiresAuth: true, cancellationToken);
     }
 
     public async Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
@@ -107,21 +112,15 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
 
     public async Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
     {
-        var result = await CallFunctionAsync("bridges", null, requiresAuth: true, cancellationToken);
-        if (result is null)
-        {
-            return Array.Empty<string>();
-        }
-
-        if (result is not JsonArray array)
-        {
-            throw new InvalidDataException("Journal bridges response must be an array.");
-        }
-
-        return array
-            .Select(node => node?.GetValue<string>() ?? string.Empty)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .ToArray();
+        var result = await CallFunctionAsync(
+            "config",
+            new JsonObject
+            {
+                ["path"] = JsonSerializer.SerializeToNode(new object[] { "private", "bridge" }),
+            },
+            requiresAuth: true,
+            cancellationToken);
+        return HttpGatewayClient.ExtractBridgeNames(result);
     }
 
     public void Dispose()
@@ -220,4 +219,7 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
             Timeout = TimeSpan.FromMilliseconds(options.GatewayTimeoutMs),
         };
     }
+
+    private static bool IsIndexedPath(IReadOnlyList<object> path) =>
+        path.Count > 0 && path[0] is sbyte or byte or short or ushort or int or uint or long or ulong;
 }

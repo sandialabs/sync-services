@@ -10,6 +10,8 @@ export interface JournalCall {
 export interface JournalClient {
   callJson(input: JournalCall): Promise<unknown>;
   callLisp(input: { expression: string; functionName: string }): Promise<unknown>;
+  callControlJson(input: JournalCall): Promise<unknown>;
+  callControlLisp(input: { expression: string; functionName: string }): Promise<unknown>;
 }
 
 export interface JournalClientOptions {
@@ -106,11 +108,16 @@ const parseResponse = (text: string): unknown => {
 export const createJournalClient = (
   journalJsonEndpoint: string,
   journalLispEndpoint: string,
+  controlJsonEndpoint: string,
+  controlLispEndpoint: string,
   requestTimeoutMs: number,
   logger: FastifyBaseLogger,
   options: JournalClientOptions = {}
-): JournalClient => ({
-  async callJson(input: JournalCall): Promise<unknown> {
+): JournalClient => {
+  const callJsonEndpoint = async (
+    endpoint: string,
+    input: JournalCall
+  ): Promise<unknown> => {
     const requestBody: Record<string, unknown> = {
       function: input.functionName,
     };
@@ -133,7 +140,7 @@ export const createJournalClient = (
         : redactAuth(requestBody);
       logger.info(
         {
-          upstream: journalJsonEndpoint,
+          upstream: endpoint,
           mode: "json",
           outboundBody: loggedBody,
         },
@@ -142,7 +149,7 @@ export const createJournalClient = (
     }
 
     try {
-      const response = await fetch(journalJsonEndpoint, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -174,7 +181,7 @@ export const createJournalClient = (
       if (options.debugForwarding) {
         logger.info(
           {
-            upstream: journalJsonEndpoint,
+            upstream: endpoint,
             mode: "json",
             statusCode: response.status,
             durationMs: Date.now() - startedAt,
@@ -218,8 +225,12 @@ export const createJournalClient = (
     } finally {
       clearTimeout(timeout);
     }
-  },
-  async callLisp(input: { expression: string; functionName: string }): Promise<unknown> {
+  };
+
+  const callLispEndpoint = async (
+    endpoint: string,
+    input: { expression: string; functionName: string }
+  ): Promise<unknown> => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
     const startedAt = Date.now();
@@ -227,7 +238,7 @@ export const createJournalClient = (
     if (options.debugForwarding) {
       logger.info(
         {
-          upstream: journalLispEndpoint,
+          upstream: endpoint,
           mode: "lisp",
           function: input.functionName,
           outboundExpression: input.expression,
@@ -237,7 +248,7 @@ export const createJournalClient = (
     }
 
     try {
-      const response = await fetch(journalLispEndpoint, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "text/plain; charset=utf-8" },
         body: input.expression,
@@ -263,7 +274,7 @@ export const createJournalClient = (
       if (options.debugForwarding) {
         logger.info(
           {
-            upstream: journalLispEndpoint,
+            upstream: endpoint,
             mode: "lisp",
             function: input.functionName,
             statusCode: response.status,
@@ -308,5 +319,23 @@ export const createJournalClient = (
     } finally {
       clearTimeout(timeout);
     }
-  },
-});
+  };
+
+  return {
+    async callJson(input: JournalCall): Promise<unknown> {
+      return callJsonEndpoint(journalJsonEndpoint, input);
+    },
+    async callLisp(input: { expression: string; functionName: string }): Promise<unknown> {
+      return callLispEndpoint(journalLispEndpoint, input);
+    },
+    async callControlJson(input: JournalCall): Promise<unknown> {
+      return callJsonEndpoint(controlJsonEndpoint, input);
+    },
+    async callControlLisp(input: {
+      expression: string;
+      functionName: string;
+    }): Promise<unknown> {
+      return callLispEndpoint(controlLispEndpoint, input);
+    },
+  };
+};

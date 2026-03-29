@@ -33,7 +33,7 @@ HTTPS_PORT=443 \
 docker compose -f compose/general/docker-compose.yml up -d
 ```
 
-Run with local Scheme sources for `general.scm` and related runtime classes:
+Run with local Scheme sources for `interface.scm` and related runtime classes:
 
 ```bash
 LOCAL_LISP_DIRECTORY=/absolute/path/to/lisp SECRET=password PORT=8192 ./tests/local-compose.sh up

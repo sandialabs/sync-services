@@ -1,6 +1,6 @@
 # Synchronic Gateway
 
-Web-facing API gateway for Synchronic `general` and (optionally) `control` operations.
+Web-facing API gateway for Synchronic `interface` and (optionally) `control` operations.
 It presents a versioned HTTP interface that maps function-oriented journal calls into web-native routes, request schemas, and header-based authentication.
 
 ## What This Service Is For
@@ -73,9 +73,7 @@ npm run start
   - etc.
 - Public `GET` endpoints:
   - `/api/v1/general/size`
-  - `/api/v1/general/information`
-- Restricted `GET` endpoint:
-  - `/api/v1/general/bridges`
+  - `/api/v1/general/info`
 
 Swagger UI:
 
@@ -98,7 +96,7 @@ Gateway supports both JSON and Lisp request bodies for `POST` operation endpoint
 { ... }
 ```
 
-- Use keyword-style argument object fields directly (for example `{ "path": ..., "pinned?": true, "proof?": true }`).
+- Use keyword-style argument object fields directly (for example `{ "path": ... }` for staged reads or `{ "path": ..., "pinned?": true, "proof?": true }` for committed/indexed `resolve` calls).
 
 - Forwarded to: `/interface/json`
 
@@ -150,21 +148,17 @@ Included metrics:
 ### General
 
 - `GET /api/v1/general/size` (public)
-- `GET /api/v1/general/information` (public)
-- `GET /api/v1/general/bridges` (restricted)
+- `GET /api/v1/general/info` (public)
 - `POST /api/v1/general/get`
 - `POST /api/v1/general/set`
 - `POST /api/v1/general/pin`
 - `POST /api/v1/general/unpin`
-- `POST /api/v1/general/general-batch`
+- `POST /api/v1/general/batch`
 - `POST /api/v1/general/synchronize`
 - `POST /api/v1/general/resolve`
+- `POST /api/v1/general/trace` (public)
 - `POST /api/v1/general/bridge`
-- `POST /api/v1/general/general-bridge`
-- `POST /api/v1/general/configuration`
-- `POST /api/v1/general/step-generate`
-- `POST /api/v1/general/step-chain`
-- `POST /api/v1/general/step-bridge`
+- `POST /api/v1/general/config`
 - `POST /api/v1/general/set-secret`
 
 ### Control (disabled by default)
@@ -192,7 +186,7 @@ Restricted JSON call:
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: application/json" \
-  -d '{"path":[["*state*","docs","article","hash"]],"pinned?":true,"proof?":true}'
+  -d '{"path":[["*state*","docs","article","hash"]]}'
 ```
 
 Restricted Lisp call:
@@ -201,27 +195,25 @@ Restricted Lisp call:
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: text/plain" \
-  -d '((path ((*state* docs article hash))) (pinned? #t) (proof? #t))'
+  -d '((path ((*state* docs article hash))))'
 ```
 
 Restricted batch call:
 
 ```bash
-curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \
+curl -X POST http://127.0.0.1:8180/api/v1/general/batch \
   -H "Authorization: Bearer password" \
   -H "Content-Type: application/json" \
   -d '{
-    "requests": [
+    "queries": [
       {
         "function": "get",
         "arguments": {
-          "path": [["*state*","docs","article","hash"]],
-          "pinned?": true,
-          "proof?": false
+          "path": [["*state*","docs","article","hash"]]
         }
       },
       {
-        "function": "configuration"
+        "function": "config"
       }
     ]
   }'
@@ -230,11 +222,11 @@ curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \
 Restricted batch call in Lisp mode:
 
 ```bash
-curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \
+curl -X POST http://127.0.0.1:8180/api/v1/general/batch \
   -H "Authorization: Bearer password" \
   -H "Content-Type: text/plain" \
-  -d '((requests (((function get) (arguments ((path ((*state* docs article hash))) (pinned? #t) (proof? #f)))
-               ((function configuration))))))'
+  -d '((queries (((function get) (arguments ((path ((*state* docs article hash)))))
+               ((function config))))))'
 ```
 
 Forwarding debug mode:
@@ -247,10 +239,10 @@ DEBUG_FORWARDING=1 npm run dev
 
 Recommended integration pattern:
 
-1. Use `GET` endpoints for simple public reads (`size`, `information`).
+1. Use `GET` endpoints for simple public reads (`size`, `info`).
 2. Use `POST /api/v1/general/<operation>` for everything that takes arguments.
 3. Default to JSON in services; use Lisp mode for advanced evaluator-native flows.
-4. Use `general-batch` when one workflow needs multiple ordered ledger requests under one authenticated call.
+4. Use `batch` when one workflow needs multiple ordered ledger requests under one authenticated call.
 5. Validate payloads in Swagger first, then copy canonical samples into tests.
 
 ## Metrics

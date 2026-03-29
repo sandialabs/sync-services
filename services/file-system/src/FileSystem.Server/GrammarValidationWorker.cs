@@ -249,8 +249,8 @@ public sealed class GrammarValidationWorker : BackgroundService
         Assert(string.Equals(handler.LastRequestUri, "http://gateway/api/v1/general/get", StringComparison.Ordinal), "http gateway get URI should match gateway route");
         Assert(string.Equals(handler.LastAuthorization, "Bearer secret-token", StringComparison.Ordinal), "http gateway should send bearer auth");
         Assert(string.Equals(handler.LastBody?["path"]?.ToJsonString(), """[["*state*","docs"]]""", StringComparison.Ordinal), "http gateway get should serialize journal path");
-        Assert(handler.LastBody?["pinned?"]?.GetValue<bool>() == true, "http gateway get should serialize pinned?");
-        Assert(handler.LastBody?["proof?"]?.GetValue<bool>() == false, "http gateway get should serialize proof? false for file-system reads");
+        Assert(handler.LastBody?["pinned?"] == null, "http gateway stage get should omit pinned?");
+        Assert(handler.LastBody?["proof?"] == null, "http gateway stage get should omit proof?");
         Assert(string.Equals(getResult?["ok"]?.GetValue<string>(), "get", StringComparison.Ordinal), "http gateway get should parse JSON response");
 
         var setPath = new object[]
@@ -295,7 +295,7 @@ public sealed class GrammarValidationWorker : BackgroundService
         Assert(size == 10L, "http gateway size should parse numeric responses");
 
         var bridges = gateway.BridgesAsync(CancellationToken.None).GetAwaiter().GetResult();
-        Assert(bridges.SequenceEqual(new[] { "alice", "bob" }), "http gateway bridges should parse string arrays");
+        Assert(bridges.SequenceEqual(new[] { "alice", "bob" }), "http gateway bridges should parse config bridge keys");
 
         handler.NextRespondWithEmptyBody = true;
         var emptyBridges = gateway.BridgesAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -324,8 +324,8 @@ public sealed class GrammarValidationWorker : BackgroundService
         Assert(string.Equals(handler.LastBody?["function"]?.GetValue<string>(), "get", StringComparison.Ordinal), "http journal get should use function envelope");
         Assert(string.Equals(handler.LastBody?["authentication"]?["*type/string*"]?.GetValue<string>(), "secret-token", StringComparison.Ordinal), "http journal get should serialize authentication in the body");
         Assert(string.Equals(handler.LastBody?["arguments"]?["path"]?.ToJsonString(), """[["*state*","docs"]]""", StringComparison.Ordinal), "http journal get should serialize journal path");
-        Assert(handler.LastBody?["arguments"]?["pinned?"]?.GetValue<bool>() == true, "http journal get should serialize pinned?");
-        Assert(handler.LastBody?["arguments"]?["proof?"]?.GetValue<bool>() == false, "http journal get should serialize proof? false for file-system reads");
+        Assert(handler.LastBody?["arguments"]?["pinned?"] == null, "http journal stage get should omit pinned?");
+        Assert(handler.LastBody?["arguments"]?["proof?"] == null, "http journal stage get should omit proof?");
         Assert(string.Equals(getResult?["ok"]?.GetValue<string>(), "get", StringComparison.Ordinal), "http journal get should parse JSON response");
 
         var batchResult = journal.BatchAsync(
@@ -339,14 +339,14 @@ public sealed class GrammarValidationWorker : BackgroundService
                                 ["path"] = JsonNode.Parse("""[["*state*","docs","a.txt"]]"""),
                                 ["value"] = JsonNode.Parse("""{"*type/string*":"a"}"""),
                             }),
-                        new GatewayBatchOperation("configuration", null),
+                        new GatewayBatchOperation("config", null),
                     }),
                 CancellationToken.None)
             .GetAwaiter()
             .GetResult();
-        Assert(string.Equals(handler.LastBody?["function"]?.GetValue<string>(), "general-batch!", StringComparison.Ordinal), "http journal batch should use general-batch!");
+        Assert(string.Equals(handler.LastBody?["function"]?.GetValue<string>(), "batch!", StringComparison.Ordinal), "http journal batch should use batch!");
         Assert(string.Equals(handler.LastBody?["arguments"]?["requests"]?[0]?["function"]?.GetValue<string>(), "set!", StringComparison.Ordinal), "http journal batch should preserve function names");
-        Assert(string.Equals(handler.LastBody?["arguments"]?["requests"]?[1]?["function"]?.GetValue<string>(), "configuration", StringComparison.Ordinal), "http journal batch should preserve zero-argument requests");
+        Assert(string.Equals(handler.LastBody?["arguments"]?["requests"]?[1]?["function"]?.GetValue<string>(), "config", StringComparison.Ordinal), "http journal batch should preserve zero-argument requests");
         Assert(string.Equals(batchResult?[0]?["ok"]?.GetValue<string>(), "batch", StringComparison.Ordinal), "http journal batch should parse array response");
     }
 
@@ -908,14 +908,14 @@ public sealed class GrammarValidationWorker : BackgroundService
 
             var operation = request.RequestUri?.AbsolutePath.EndsWith("/set", StringComparison.OrdinalIgnoreCase) == true
                 ? "set"
-                : request.RequestUri?.AbsolutePath.EndsWith("/pin", StringComparison.OrdinalIgnoreCase) == true
+                    : request.RequestUri?.AbsolutePath.EndsWith("/pin", StringComparison.OrdinalIgnoreCase) == true
                     ? "pin"
                     : request.RequestUri?.AbsolutePath.EndsWith("/unpin", StringComparison.OrdinalIgnoreCase) == true
                         ? "unpin"
+                : request.RequestUri?.AbsolutePath.EndsWith("/batch", StringComparison.OrdinalIgnoreCase) == true
+                    ? "batch"
                 : request.RequestUri?.AbsolutePath.EndsWith("/size", StringComparison.OrdinalIgnoreCase) == true
                     ? "size"
-                    : request.RequestUri?.AbsolutePath.EndsWith("/bridges", StringComparison.OrdinalIgnoreCase) == true
-                        ? "bridges"
                         : request.RequestUri?.AbsolutePath.EndsWith("/interface/json", StringComparison.OrdinalIgnoreCase) == true
                             ? (LastBody?["function"]?.GetValue<string>() switch
                             {
@@ -923,8 +923,8 @@ public sealed class GrammarValidationWorker : BackgroundService
                                 "pin!" => "pin",
                                 "unpin!" => "unpin",
                                 "size" => "size",
-                                "bridges" => "bridges",
-                                "general-batch!" => "batch",
+                                "config" => "config",
+                                "batch!" => "batch",
                                 _ => "get"
                             })
                         : "get";
@@ -939,9 +939,10 @@ public sealed class GrammarValidationWorker : BackgroundService
                 JsonNode responseBody = NextResponseBody?.DeepClone() ?? operation switch
                 {
                     "size" => JsonValue.Create(10L)!,
-                    "bridges" => new JsonArray("alice", "bob"),
+                    "config" => JsonNode.Parse("""{"private":{"bridge":{"alice":{},"bob":{}}}}""")!,
                     "pin" => JsonValue.Create(true)!,
                     "unpin" => JsonValue.Create(true)!,
+                    "batch" => new JsonArray(new JsonObject { ["ok"] = "batch" }),
                     _ => new JsonObject
                     {
                         ["ok"] = operation
@@ -1090,7 +1091,7 @@ public sealed class GrammarValidationWorker : BackgroundService
             var output = new JsonArray();
             foreach (var operation in request.Requests)
             {
-                if (operation.Function == "get" && operation.Arguments is not null)
+                if ((operation.Function == "get" || operation.Function == "resolve") && operation.Arguments is not null)
                 {
                     var requestPath = JsonSerializer.Deserialize<object[]>(operation.Arguments["path"]!.ToJsonString())
                         ?? throw new InvalidDataException("Batch request path is invalid.");
@@ -1166,7 +1167,7 @@ public sealed class GrammarValidationWorker : BackgroundService
             var output = new JsonArray();
             foreach (var operation in request.Requests)
             {
-                if (operation.Function == "get" && operation.Arguments is not null)
+                if ((operation.Function == "get" || operation.Function == "resolve") && operation.Arguments is not null)
                 {
                     var path = JsonSerializer.Deserialize<object[]>(operation.Arguments["path"]!.ToJsonString())
                         ?? throw new InvalidDataException("Batch request path is invalid.");

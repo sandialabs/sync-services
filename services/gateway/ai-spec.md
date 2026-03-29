@@ -2,7 +2,7 @@
 
 ## Objective
 
-This service is a web-facing API gateway for the Synchronic Web `general` interface.
+This service is a web-facing API gateway for the Synchronic Web `interface` interface.
 It accepts external HTTP requests (including from other compose services), validates and normalizes them, and forwards equivalent calls to journal endpoints.
 The goal is to provide a stable, versioned, and web-native API surface while preserving correctness against the underlying journal semantics.
 
@@ -18,9 +18,9 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 
 ## Scope (Initial)
 
-- Support both `general` and `control` operations through separate route namespaces.
+- Support both `interface` and `control` operations through separate route namespaces.
 - Keep endpoint consistency with function-final paths (for example `/api/v1/general/get`).
-- Keep simple read aliases (`size`, `information`) as `GET`.
+- Keep simple read aliases (`size`, `info`) as `GET`.
 - Use `POST` as canonical call method for all function-style operations.
 - Move client authentication to headers at the gateway boundary.
 - Provide API versioning for forward/backward compatibility.
@@ -35,7 +35,7 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 
 ## API Design Principles
 
-- Compatibility-first: map cleanly to existing `general` methods and path semantics.
+- Compatibility-first: map cleanly to existing `interface` methods and path semantics.
 - Explicitness: routes should clearly encode operation intent.
 - Consistency: final URL segment is always a function name for operation endpoints.
 - URL ergonomics: external routes use URL-safe function aliases instead of Lisp earmuff/punctuation names.
@@ -51,20 +51,17 @@ Base path: `/api/v1`
 General namespace: `/api/v1/general`
 
 - `GET /api/v1/general/size` (public)
-- `GET /api/v1/general/information` (public)
-- `GET /api/v1/general/bridges` (restricted)
+- `GET /api/v1/general/info` (public)
 - `POST /api/v1/general/get`
 - `POST /api/v1/general/set` -> journal `set!`
 - `POST /api/v1/general/pin` -> journal `pin!`
 - `POST /api/v1/general/unpin` -> journal `unpin!`
+- `POST /api/v1/general/batch` -> journal `batch!`
 - `POST /api/v1/general/synchronize`
 - `POST /api/v1/general/resolve`
+- `POST /api/v1/general/trace`
 - `POST /api/v1/general/bridge` -> journal `bridge!`
-- `POST /api/v1/general/general-bridge` -> journal `general-bridge!`
-- `POST /api/v1/general/configuration`
-- `POST /api/v1/general/step-generate`
-- `POST /api/v1/general/step-chain` -> journal `step-chain!`
-- `POST /api/v1/general/step-bridge` -> journal `step-bridge!`
+- `POST /api/v1/general/config`
 - `POST /api/v1/general/set-secret` -> journal `*secret*`
 
 Control namespace: `/api/v1/control` (admin only, disable by default)
@@ -83,10 +80,8 @@ Gateway route aliases are URL-safe and map to canonical journal function names:
 - `set` -> `set!`
 - `pin` -> `pin!`
 - `unpin` -> `unpin!`
+- `batch` -> `batch!`
 - `bridge` -> `bridge!`
-- `general-bridge` -> `general-bridge!`
-- `step-chain` -> `step-chain!`
-- `step-bridge` -> `step-bridge!`
 - `general/set-secret` -> `*secret*`
 - `control/eval` -> `*eval*`
 - `control/call` -> `*call*`
@@ -155,7 +150,7 @@ Gateway request -> journal request translation responsibilities:
 
 ## Open Decisions
 
-1. Whether both `bridge!` and `general-bridge!` should be exposed in v1 or one should be preferred.
+1. Whether to keep legacy compatibility aliases like `general-batch` and `general-bridge` after clients finish migrating.
 2. Whether control routes should ship in the first release or remain feature-flagged.
 3. Whether gateway should support fan-out to multiple journals or a single upstream per deployment.
 
@@ -169,6 +164,6 @@ Gateway request -> journal request translation responsibilities:
 - Stack selected: TypeScript + Fastify.
 - Default auth input supports both `Authorization: Bearer <secret>` and `X-Sync-Auth: <secret>`.
 - Route model selected: function-final endpoints under `/api/v1/general/*` and `/api/v1/control/*`.
-- `size` and `information` remain `GET`; operation endpoints are canonical `POST`.
+- `size` and `info` remain `GET`; operation endpoints are canonical `POST`.
 - `synchronize` is `POST` (for future argument expansion).
 - Content negotiation approach selected: JSON and Lisp support by `Content-Type`.

@@ -123,6 +123,7 @@ public sealed class MockGatewayClient : IGeneralInterfaceClient
                 switch (operation.Function)
                 {
                     case "get":
+                    case "resolve":
                     {
                         var arguments = operation.Arguments
                             ?? throw new InvalidDataException("Batch get requires arguments.");

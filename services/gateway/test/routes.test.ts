@@ -86,8 +86,6 @@ test("POST /api/v1/general/get accepts JSON keyword-object payload", async (t) =
 
   const args = {
     path: [["*state*", "docs"]],
-    "pinned?": true,
-    "proof?": true,
   };
   const res = await app.inject({
     method: "POST",
@@ -113,7 +111,7 @@ test("POST /api/v1/general/get accepts legacy JSON array payload", async (t) => 
   const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
   t.after(async () => app.close());
 
-  const args = [[["path", [["*state*", "docs"]]], ["pinned?", true], ["proof?", true]]];
+  const args = [[["path", [["*state*", "docs"]]]]];
   const res = await app.inject({
     method: "POST",
     url: "/api/v1/general/get",
@@ -145,7 +143,7 @@ test("POST /api/v1/general/get accepts Lisp payload and wraps expression", async
       authorization: "Bearer password",
       "content-type": "text/plain",
     },
-    payload: "(((path ((*state* docs))) (pinned? #t) (proof? #t)))",
+    payload: "(((path ((*state* docs)))))",
   });
 
   assert.equal(res.statusCode, 200);
@@ -154,35 +152,33 @@ test("POST /api/v1/general/get accepts Lisp payload and wraps expression", async
   assert.match(mock.lispCalls[0].expression, /^\(\(function get\) /);
   assert.match(
     mock.lispCalls[0].expression,
-    /\(arguments \(\(\(path \(\(\*state\* docs\)\)\) \(pinned\? #t\) \(proof\? #t\)\)\)\)/
+    /\(arguments \(\(\(path \(\(\*state\* docs\)\)\)\)\)\)/
   );
   assert.match(mock.lispCalls[0].expression, /\(authentication "password"\)/);
 });
 
-test("POST /api/v1/general/general-batch accepts JSON payload", async (t) => {
+test("POST /api/v1/general/batch accepts JSON payload", async (t) => {
   const mock = createMockJournal();
   const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
   t.after(async () => app.close());
 
   const args = {
-    requests: [
+    queries: [
       {
         function: "get",
         arguments: {
           path: [["*state*", "docs"]],
-          "pinned?": true,
-          "proof?": false,
         },
       },
       {
-        function: "configuration",
+        function: "config",
       },
     ],
   };
 
   const res = await app.inject({
     method: "POST",
-    url: "/api/v1/general/general-batch",
+    url: "/api/v1/general/batch",
     headers: {
       authorization: "Bearer password",
       "content-type": "application/json",
@@ -193,41 +189,41 @@ test("POST /api/v1/general/general-batch accepts JSON payload", async (t) => {
   assert.equal(res.statusCode, 200);
   assert.equal(mock.jsonCalls.length, 1);
   assert.deepEqual(mock.jsonCalls[0], {
-    functionName: "general-batch!",
+    functionName: "batch!",
     args,
     authentication: "password",
   });
 });
 
-test("POST /api/v1/general/general-batch accepts Lisp payload and wraps expression", async (t) => {
+test("POST /api/v1/general/batch accepts Lisp payload and wraps expression", async (t) => {
   const mock = createMockJournal();
   const app = await createApp({ allowAdminRoutes: false, journal: mock.client });
   t.after(async () => app.close());
 
   const res = await app.inject({
     method: "POST",
-    url: "/api/v1/general/general-batch",
+    url: "/api/v1/general/batch",
     headers: {
       authorization: "Bearer password",
       "content-type": "text/plain",
     },
     payload:
-      "(((requests (((function get) (arguments ((path ((*state* docs))) (pinned? #t) (proof? #f))) ((function configuration))))))",
+      "(((queries (((function get) (arguments ((path ((*state* docs))))) ((function config))))))",
   });
 
   assert.equal(res.statusCode, 200);
   assert.equal(mock.lispCalls.length, 1);
-  assert.equal(mock.lispCalls[0].functionName, "general-batch!");
-  assert.match(mock.lispCalls[0].expression, /^\(\(function general-batch!\) /);
-  assert.ok(mock.lispCalls[0].expression.includes("(requests "));
+  assert.equal(mock.lispCalls[0].functionName, "batch!");
+  assert.match(mock.lispCalls[0].expression, /^\(\(function batch!\) /);
+  assert.ok(mock.lispCalls[0].expression.includes("(queries "));
   assert.ok(
     mock.lispCalls[0].expression.includes(
-      "((function get) (arguments ((path ((*state* docs))) (pinned? #t) (proof? #f)))"
+      "((function get) (arguments ((path ((*state* docs)))))"
     )
   );
   assert.ok(
     mock.lispCalls[0].expression.includes(
-      "((function configuration))"
+      "((function config))"
     )
   );
   assert.match(mock.lispCalls[0].expression, /\(authentication "password"\)/);

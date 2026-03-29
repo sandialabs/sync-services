@@ -2,8 +2,8 @@
 set -eu
 
 MODE="${1:-up}"
-if [ "$MODE" != "up" ] && [ "$MODE" != "smoke" ]; then
-    echo "Usage: $0 [up|smoke]"
+if [ "$MODE" != "up" ] && [ "$MODE" != "smoke" ] && [ "$MODE" != "build" ]; then
+    echo "Usage: $0 [build|up|smoke]"
     exit 1
 fi
 
@@ -77,7 +77,7 @@ resolve_directory() {
 validate_local_lisp_directory() {
     directory="$1"
     missing=""
-    for required in control.scm standard.scm log-chain.scm linear-chain.scm tree.scm configuration.scm ledger.scm; do
+    for required in control.scm standard.scm log-chain.scm linear-chain.scm tree.scm ledger.scm interface.scm; do
         if [ ! -f "$directory/$required" ]; then
             missing="$missing $required"
         fi
@@ -283,6 +283,11 @@ build_and_retag "$ROOT_DIR/services/file-system" "$FILE_SYSTEM_LOCAL_TAG" "$FILE
 echo "Tagging $FILE_SYSTEM_LOCAL_TAG as $FILE_SYSTEM_IMAGE ..."
 docker tag "$FILE_SYSTEM_LOCAL_TAG" "$FILE_SYSTEM_IMAGE"
 
+if [ "$MODE" = "build" ]; then
+    echo "PASS: local images built and tagged."
+    exit 0
+fi
+
 export SECRET PERIOD WINDOW PORT SMB_PORT COMPOSE_PROJECT_NAME TLS_CERT_HOST_PATH TLS_KEY_HOST_PATH FILE_SYSTEM_IMAGE
 
 confirm_volume_wipe_if_needed
@@ -350,9 +355,9 @@ case "$size_response" in
         ;;
 esac
 
-config_response="$(api_post "{\"function\":\"configuration\",\"authentication\":\"$SECRET\"}")"
+config_response="$(api_post "{\"function\":\"config\",\"authentication\":\"$SECRET\"}")"
 if [ -z "$config_response" ]; then
-    echo "FAIL: configuration response is empty"
+    echo "FAIL: config response is empty"
     exit 1
 fi
 

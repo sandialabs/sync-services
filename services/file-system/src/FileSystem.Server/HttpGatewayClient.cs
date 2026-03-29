@@ -43,14 +43,19 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
 
     public async Task<JsonNode?> GetAsync(GatewayGetRequest request, CancellationToken cancellationToken)
     {
+        var indexedPath = IsIndexedPath(request.Path);
         var arguments = new JsonObject
         {
             ["path"] = JsonSerializer.SerializeToNode(request.Path),
-            ["pinned?"] = request.Pinned,
-            ["proof?"] = request.Proof,
         };
 
-        return await PostGeneralAsync("get", arguments, cancellationToken);
+        if (indexedPath)
+        {
+            arguments["pinned?"] = request.Pinned;
+            arguments["proof?"] = request.Proof;
+        }
+
+        return await PostGeneralAsync(indexedPath ? "resolve" : "get", arguments, cancellationToken);
     }
 
     public async Task<JsonNode?> SetAsync(GatewaySetRequest request, CancellationToken cancellationToken)
@@ -87,7 +92,7 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
             ["requests"] = requests,
         };
 
-        return await PostGeneralAsync("general-batch", arguments, cancellationToken);
+        return await PostGeneralAsync("batch", arguments, cancellationToken);
     }
 
     public async Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
@@ -137,39 +142,14 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
 
     public async Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "general/bridges");
-        if (_authToken != null)
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
-        }
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        var body = TryParseJson(content);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            ThrowSemanticErrorIfPresent(body, response.StatusCode);
-            throw new HttpRequestException(
-                $"Gateway request failed with {(int)response.StatusCode} {response.StatusCode}.",
-                null,
-                response.StatusCode);
-        }
-
-        if (body == null)
-        {
-            return Array.Empty<string>();
-        }
-
-        if (body is not JsonArray array)
-        {
-            throw new InvalidDataException("Gateway bridges response must be an array.");
-        }
-
-        return array
-            .Select(node => node?.GetValue<string>() ?? string.Empty)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .ToArray();
+        var result = await PostGeneralAsync(
+            "config",
+            new JsonObject
+            {
+                ["path"] = JsonSerializer.SerializeToNode(new object[] { "private", "bridge" }),
+            },
+            cancellationToken);
+        return ExtractBridgeNames(result);
     }
 
     public void Dispose()
@@ -253,5 +233,22 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
             BaseAddress = new Uri(baseUrl, UriKind.Absolute),
             Timeout = TimeSpan.FromMilliseconds(options.GatewayTimeoutMs),
         };
+    }
+
+    private static bool IsIndexedPath(IReadOnlyList<object> path) =>
+        path.Count > 0 && path[0] is sbyte or byte or short or ushort or int or uint or long or ulong;
+
+    internal static IReadOnlyList<string> ExtractBridgeNames(JsonNode? body)
+    {
+        var bridgeBlock = body?["private"]?["bridge"];
+        if (bridgeBlock is not JsonObject obj)
+        {
+            return Array.Empty<string>();
+        }
+
+        return obj.Select(pair => pair.Key)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
     }
 }

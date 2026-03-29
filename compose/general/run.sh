@@ -39,10 +39,9 @@ run_startup() {
     standard=$( cat "$(resolve_lisp_file standard.scm)" )
     chain=$( cat "$(resolve_lisp_file log-chain.scm)" )
     tree=$( cat "$(resolve_lisp_file tree.scm)" )
-    configuration=$( cat "$(resolve_lisp_file configuration.scm)" )
     ledger=$( cat "$(resolve_lisp_file ledger.scm)" )
-    general=$( cat "$(resolve_lisp_file general.scm)" )
-    expr="($general $clear_flag \"$SECRET\" \"$SECRET\" $WINDOW $control '$standard '$chain '$tree '$configuration '$ledger)"
+    interface=$( cat "$(resolve_lisp_file interface.scm)" )
+    expr="($interface $clear_flag \"$SECRET\" \"$SECRET\" $WINDOW $control '$standard '$chain '$tree '$ledger)"
     if [ "$clear_flag" = "#f" ]; then
         expr="(*eval* \"$SECRET\" $expr)"
     fi
@@ -57,5 +56,5 @@ else
     run_startup "#t"
 fi
 
-step="((function *step*) (authentication \"$SECRET\"))"
+step="((function *step!*) (authentication \"$SECRET\"))"
 RUST_LOG=$RUST_LOG ./journal-sdk -p 80 -c $PERIOD -s "$step" -d database

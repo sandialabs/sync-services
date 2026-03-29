@@ -3,6 +3,8 @@ export interface GatewayConfig {
   port: number;
   journalJsonEndpoint: string;
   journalLispEndpoint: string;
+  controlJsonEndpoint: string;
+  controlLispEndpoint: string;
   requestTimeoutMs: number;
   allowAdminRoutes: boolean;
   debugForwarding: boolean;
@@ -30,6 +32,10 @@ export const getConfig = (): GatewayConfig => ({
     process.env.JOURNAL_JSON_ENDPOINT || "http://127.0.0.1:8192/interface/json",
   journalLispEndpoint:
     process.env.JOURNAL_LISP_ENDPOINT || "http://127.0.0.1:8192/interface",
+  controlJsonEndpoint:
+    process.env.CONTROL_JSON_ENDPOINT || "http://127.0.0.1:8192/control/json",
+  controlLispEndpoint:
+    process.env.CONTROL_LISP_ENDPOINT || "http://127.0.0.1:8192/control",
   requestTimeoutMs: toNumber(process.env.REQUEST_TIMEOUT_MS, 30000),
   allowAdminRoutes: toBoolean(process.env.ALLOW_ADMIN_ROUTES, false),
   debugForwarding: toBoolean(process.env.DEBUG_FORWARDING, false),

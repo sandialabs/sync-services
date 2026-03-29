@@ -89,15 +89,18 @@ const callWithNegotiation = async (input: {
   journal: JournalClient;
   functionName: string;
   requiresAuth: boolean;
+  control?: boolean;
 }): Promise<unknown> => {
-  const { request, journal, functionName, requiresAuth } = input;
+  const { request, journal, functionName, requiresAuth, control = false } = input;
   const authSecret = requiresAuth ? requireAuth(request) : undefined;
   const contentType = getContentType(request);
 
   if (isLispContentType(contentType)) {
     const argsExpression = extractLispArguments(request.body);
     const expression = buildLispExpression(functionName, argsExpression, authSecret);
-    return journal.callLisp({ expression, functionName });
+    return control
+      ? journal.callControlLisp({ expression, functionName })
+      : journal.callLisp({ expression, functionName });
   }
 
   if (!isJsonContentType(contentType)) {
@@ -107,11 +110,17 @@ const callWithNegotiation = async (input: {
   }
 
   const args = extractJsonArguments(request.body);
-  return journal.callJson({
-    functionName,
-    args,
-    authentication: authSecret,
-  });
+  return control
+    ? journal.callControlJson({
+        functionName,
+        args,
+        authentication: authSecret,
+      })
+    : journal.callJson({
+        functionName,
+        args,
+        authentication: authSecret,
+      });
 };
 
 const generalAliases = {
@@ -119,15 +128,15 @@ const generalAliases = {
   set: "set!",
   pin: "pin!",
   unpin: "unpin!",
-  "general-batch": "general-batch!",
+  batch: "batch!",
+  "general-batch": "batch!",
+  info: "info",
   synchronize: "synchronize",
   resolve: "resolve",
+  trace: "trace",
   bridge: "bridge!",
-  "general-bridge": "general-bridge!",
-  configuration: "configuration",
-  "step-generate": "step-generate",
-  "step-chain": "step-chain!",
-  "step-bridge": "step-bridge!",
+  "general-bridge": "bridge!",
+  config: "config",
   "set-secret": "*secret*",
 } as const;
 
@@ -140,20 +149,20 @@ const controlAliases = {
   "set-query": "*set-query*",
 } as const;
 
-const publicGeneralFunctions = new Set<string>(["synchronize", "resolve"]);
+const publicGeneralFunctions = new Set<string>(["synchronize", "trace"]);
 const requestModeDescription =
   "JSON mode: Content-Type application/json with a keyword argument object. Legacy array arguments are also accepted for compatibility. Lisp mode: Content-Type text/plain or application/lisp with a raw Lisp arguments expression (the gateway wraps it into the full interface call).";
 
 const generalOperationDocs: Record<string, { summary: string; description: string }> = {
   get: {
-    summary: "Read ledger or staged state",
+    summary: "Read staged state",
     description:
-      "Calls general function `get`. Use for path reads with optional `pinned?` and `proof?` metadata flags.",
+      "Calls general function `get`. Reads the current staged view only.",
   },
   set: {
     summary: "Stage a state write",
     description:
-      "Calls general function `set!`. Writes to staged state; pair with step-chain workflow for durable chain progression.",
+      "Calls general function `set!`. Writes to staged state; pair with control `step` for durable chain progression.",
   },
   pin: {
     summary: "Pin state/proof into permanent history",
@@ -165,10 +174,20 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
     description:
       "Calls general function `unpin!`. Returns selected content to normal retention behavior.",
   },
+  batch: {
+    summary: "Execute multiple general requests in order",
+    description:
+      "Calls general function `batch!`. Accepts a `queries` list of request-shaped entries and executes them in order against the ledger.",
+  },
+  info: {
+    summary: "Get public info",
+    description:
+      "Calls public general function `info`. Returns public node metadata.",
+  },
   "general-batch": {
     summary: "Execute multiple general requests in order",
     description:
-      "Calls general function `general-batch!`. Accepts a `requests` list of request-shaped entries, executes them in order against the ledger, and persists once at the end.",
+      "Legacy alias for `batch` that still calls general function `batch!`. Accepts a `queries` list of request-shaped entries and executes them in order against the ledger.",
   },
   synchronize: {
     summary: "Generate synchronization payload",
@@ -176,39 +195,29 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
       "Calls public general function `synchronize`. Used by bridges/services to fetch digest/proof material for anti-entropy synchronization.",
   },
   resolve: {
-    summary: "Resolve a path/index proof view",
+    summary: "Resolve committed chain content",
     description:
-      "Calls public general function `resolve`. Used by bridges/services to verify remote path state against a chain position.",
+      "Calls general function `resolve`. Reads indexed/committed content with optional pinned/proof metadata.",
+  },
+  trace: {
+    summary: "Trace remote content against a chain index",
+    description:
+      "Calls public general function `trace`. Used by bridges/services to fetch a serialized remote path view from a committed chain index.",
   },
   bridge: {
     summary: "Register or update a bridge",
     description:
-      "Calls general function `bridge!` with explicit handler metadata for remote information/synchronize/resolve calls.",
+      "Calls general function `bridge!` with a bridge name and interface URL so the journal can wire its standard info/synchronize/trace handlers.",
   },
   "general-bridge": {
     summary: "Register a bridge using general defaults",
     description:
-      "Calls general function `general-bridge!`. Convenience form that wires standard bridge handlers from a base interface URL.",
+      "Legacy alias for `bridge` that still calls general function `bridge!` with the standard general interface URL pattern.",
   },
-  configuration: {
-    summary: "Read full node configuration",
+  config: {
+    summary: "Read full node config",
     description:
-      "Calls general function `configuration`. Includes private/runtime fields and should be treated as sensitive output.",
-  },
-  "step-generate": {
-    summary: "Generate ordered step actions",
-    description:
-      "Calls general function `step-generate`. Produces the ordered plan used for chain and bridge stepping.",
-  },
-  "step-chain": {
-    summary: "Commit staged state to chain",
-    description:
-      "Calls general function `step-chain!`. Advances permanent chain state from staged updates.",
-  },
-  "step-bridge": {
-    summary: "Step synchronization for one bridge",
-    description:
-      "Calls general function `step-bridge!`. Pulls and verifies state/proofs from a named bridge.",
+      "Calls general function `config`. Includes private/runtime fields and should be treated as sensitive output.",
   },
   "set-secret": {
     summary: "Rotate the general interface secret",
@@ -322,7 +331,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
     <div class="card">
       <h2>Common Patterns</h2>
       <ul>
-        <li>Public reads: <code>GET /api/v1/general/size</code>, <code>GET /api/v1/general/information</code>.</li>
+        <li>Public reads: <code>GET /api/v1/general/size</code>, <code>GET /api/v1/general/info</code>.</li>
         <li>Restricted operations: send <code>Authorization: Bearer &lt;secret&gt;</code> or <code>X-Sync-Auth: &lt;secret&gt;</code>.</li>
         <li>Mutating calls are <code>POST</code> and accept either JSON or Lisp argument bodies.</li>
       </ul>
@@ -344,17 +353,17 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: application/json" \\
-  -d '{"path":[["*state*","docs"]],"pinned?":true,"proof?":true}'</code></pre>
+  -d '{"path":[["*state*","docs"]]}'</code></pre>
       <p>Lisp body call:</p>
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: text/plain" \\
-  -d '((path ((*state* docs))) (pinned? #t) (proof? #t))'</code></pre>
+  -d '((path ((*state* docs))))'</code></pre>
       <p>Batch call:</p>
-      <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/general-batch \\
+      <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/batch \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: application/json" \\
-  -d '{"requests":[{"function":"get","arguments":{"path":[["*state*","docs"]],"pinned?":true,"proof?":false}},{"function":"configuration"}]}'</code></pre>
+  -d '{"queries":[{"function":"get","arguments":{"path":[["*state*","docs"]]}},{"function":"config"}]}'</code></pre>
     </div>
   </body>
 </html>`)
@@ -429,34 +438,16 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   );
 
   app.get(
-    "/api/v1/general/information",
+    "/api/v1/general/info",
     {
       schema: {
         tags: ["General API (Public)"],
-        summary: "Get public information (public)",
+        summary: "Get public info (public)",
         description:
-          "Public convenience endpoint for general function `information`. Returns public node metadata.",
+          "Public convenience endpoint for general function `info`. Returns public node metadata.",
       },
     },
-    async () => journal.callJson({ functionName: "information" })
-  );
-
-  app.get(
-    "/api/v1/general/bridges",
-    {
-      schema: {
-        tags: ["General API (Restricted)"],
-        summary: "List configured bridges",
-        description:
-          "Restricted convenience endpoint for general function `bridges`. Requires gateway auth header.",
-        security: restrictedSecurity,
-      },
-    },
-    async (request) =>
-      journal.callJson({
-        functionName: "bridges",
-        authentication: requireAuth(request),
-      })
+    async () => journal.callJson({ functionName: "info" })
   );
 
   for (const [operation, functionName] of Object.entries(generalAliases)) {
@@ -509,6 +500,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
             journal,
             functionName,
             requiresAuth: true,
+            control: true,
           })
       );
     }

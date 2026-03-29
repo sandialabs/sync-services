@@ -1612,15 +1612,22 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         }
     }
 
-    private static GatewayBatchOperation CreateBatchGetOperation(IReadOnlyList<object> journalPath) =>
-        new(
-            "get",
-            new JsonObject
-            {
-                ["path"] = JsonSerializer.SerializeToNode(journalPath),
-                ["pinned?"] = true,
-                ["proof?"] = false,
-            });
+    private static GatewayBatchOperation CreateBatchGetOperation(IReadOnlyList<object> journalPath)
+    {
+        var arguments = new JsonObject
+        {
+            ["path"] = JsonSerializer.SerializeToNode(journalPath),
+        };
+
+        if (journalPath.Count > 0 && journalPath[0] is int or long)
+        {
+            arguments["pinned?"] = true;
+            arguments["proof?"] = false;
+            return new GatewayBatchOperation("resolve", arguments);
+        }
+
+        return new GatewayBatchOperation("get", arguments);
+    }
 
     private bool ShouldBatchStageWriteHydration(string parentNormalizedPath, string normalizedPath, ProjectedPathInfo info, FileMode mode)
     {

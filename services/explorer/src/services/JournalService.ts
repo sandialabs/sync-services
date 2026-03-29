@@ -159,6 +159,28 @@ export class JournalService {
     return null;
   }
 
+  private static isIndexedPath(path: JournalPath): boolean {
+    return typeof path[0] === 'number';
+  }
+
+  private static extractBridgeNames(config: unknown): string[] {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      return [];
+    }
+
+    const privateBlock = (config as Record<string, unknown>).private;
+    if (!privateBlock || typeof privateBlock !== 'object' || Array.isArray(privateBlock)) {
+      return [];
+    }
+
+    const bridgeBlock = (privateBlock as Record<string, unknown>).bridge;
+    if (!bridgeBlock || typeof bridgeBlock !== 'object' || Array.isArray(bridgeBlock)) {
+      return [];
+    }
+
+    return Object.keys(bridgeBlock).sort();
+  }
+
   private buildGatewayUrl(path: string): string {
     const suffix = path.startsWith('/') ? path : `/${path}`;
     return `${this.endpointBase}${suffix}`;
@@ -262,13 +284,12 @@ export class JournalService {
    * Add a new bridge
    */
   async addBridge(name: string, endpoint: string): Promise<boolean> {
-    const nameStr: SchemeString = { '*type/string*': name };
     const endpointStr: SchemeString = { '*type/string*': endpoint };
     return this.request<boolean>({
       method: 'POST',
-      path: '/general/general-bridge',
+      path: '/general/bridge',
       args: {
-        name: nameStr,
+        name,
         interface: endpointStr,
       },
     });
@@ -299,14 +320,19 @@ export class JournalService {
     options: { pinned?: boolean; proof?: boolean } = {},
   ): Promise<JournalResponse> {
     const { pinned = true, proof = true } = options;
+    const indexedPath = JournalService.isIndexedPath(path);
     return this.request<JournalResponse>({
       method: 'POST',
-      path: '/general/get',
-      args: {
-        path,
-        'pinned?': pinned,
-        'proof?': proof,
-      },
+      path: indexedPath ? '/general/resolve' : '/general/get',
+      args: indexedPath
+        ? {
+            path,
+            'pinned?': pinned,
+            'proof?': proof,
+          }
+        : {
+            path,
+          },
     });
   }
 
@@ -464,18 +490,20 @@ export class JournalService {
   }
 
   /**
-   * Get bridge information
+   * Get bridge info
    */
   async getBridges(): Promise<PeerInfo[]> {
-    const bridges = await this.request<unknown[]>({
-      method: 'GET',
-      path: '/general/bridges',
+    const config = await this.request<unknown>({
+      method: 'POST',
+      path: '/general/config',
+      args: {
+        path: ['private', 'bridge'],
+      },
     });
-    if (!Array.isArray(bridges)) return [];
-    return bridges.map((bridge) => {
-      const { value } = JournalService.extractSchemeValue(bridge);
-      return { name: typeof value === 'string' ? value : String(value), endpoint: '' };
-    });
+    return JournalService.extractBridgeNames(config).map((name) => ({
+      name,
+      endpoint: '',
+    }));
   }
 
   async addPeer(name: string, endpoint: string): Promise<boolean> {

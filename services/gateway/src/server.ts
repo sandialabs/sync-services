@@ -12,9 +12,9 @@ const apiDescription = `
 Versioned, function-oriented HTTP gateway over Synchronic journal interfaces.
 
 Start here:
-- Use GET routes for simple read-only checks: /api/v1/general/size and /api/v1/general/information.
+- Use GET routes for simple read-only checks: /api/v1/general/size and /api/v1/general/info.
 - Use POST /api/v1/general/{operation} for function calls that take arguments.
-- Use POST /api/v1/general/general-batch for ordered multi-request workflows under one authenticated call.
+- Use POST /api/v1/general/batch for ordered multi-request workflows under one authenticated call.
 - For restricted routes, provide either Authorization bearer token or X-Sync-Auth header.
 
 Request bodies:
@@ -182,6 +182,8 @@ const main = async (): Promise<void> => {
   const journal = createJournalClient(
     config.journalJsonEndpoint,
     config.journalLispEndpoint,
+    config.controlJsonEndpoint,
+    config.controlLispEndpoint,
     config.requestTimeoutMs,
     app.log,
     {

@@ -106,9 +106,8 @@ LOCAL_LISP_DIRECTORY=/absolute/path/to/lisp ./tests/local-compose.sh smoke
 - `log-chain.scm`
 - `linear-chain.scm`
 - `tree.scm`
-- `configuration.scm`
 - `ledger.scm`
-- `general.scm`
+- `interface.scm`
 
 ## Manual Teardown
 

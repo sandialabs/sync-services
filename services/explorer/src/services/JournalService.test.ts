@@ -154,7 +154,7 @@ describe('JournalService API', () => {
   });
 
   describe('get', () => {
-    it('should call get endpoint with path and pinned/proof flags', async () => {
+    it('should call get endpoint for staged paths', async () => {
       const mockResponse = {
         content: { '*type/string*': 'test content' },
         'pinned?': null,
@@ -174,7 +174,28 @@ describe('JournalService API', () => {
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
-          body: JSON.stringify({ path, 'pinned?': true, 'proof?': true }),
+          body: JSON.stringify({ path }),
+        })
+      );
+    });
+
+    it('should call resolve endpoint for indexed paths', async () => {
+      const mockResponse = 'value';
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse));
+
+      const path = [-1, ['*state*', 'test']];
+      const result = await service.get(path, { pinned: false, proof: false });
+
+      expect(result).toEqual(mockResponse);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://test-endpoint.com/api/v1/general/resolve',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-password',
+          },
+          body: JSON.stringify({ path, 'pinned?': false, 'proof?': false }),
         })
       );
     });
@@ -289,14 +310,14 @@ describe('JournalService API', () => {
   });
 
   describe('addPeer', () => {
-    it('should call general-bridge! with name and endpoint', async () => {
+    it('should call bridge with name and endpoint', async () => {
       mockFetch.mockResolvedValueOnce(mockTextResponse('true'));
 
       const result = await service.addPeer('peer-name', 'http://peer-endpoint.com');
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com/api/v1/general/general-bridge',
+        'http://test-endpoint.com/api/v1/general/bridge',
         expect.objectContaining({
           method: 'POST',
           headers: {
@@ -304,7 +325,7 @@ describe('JournalService API', () => {
             Authorization: 'Bearer test-password',
           },
           body: JSON.stringify({
-            name: { '*type/string*': 'peer-name' },
+            name: 'peer-name',
             interface: { '*type/string*': 'http://peer-endpoint.com' },
           }),
         })
@@ -313,9 +334,16 @@ describe('JournalService API', () => {
   });
 
   describe('getPeers', () => {
-    it('should call bridges endpoint and normalize names', async () => {
+    it('should call config and normalize bridge names', async () => {
       mockFetch.mockResolvedValueOnce(
-        mockJsonResponse([{ '*type/string*': 'alice' }, 'bob'])
+        mockJsonResponse({
+          private: {
+            bridge: {
+              alice: {},
+              bob: {},
+            },
+          },
+        })
       );
       const result = await service.getPeers();
       expect(result).toEqual([
@@ -323,12 +351,14 @@ describe('JournalService API', () => {
         { name: 'bob', endpoint: '' },
       ]);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test-endpoint.com/api/v1/general/bridges',
+        'http://test-endpoint.com/api/v1/general/config',
         expect.objectContaining({
-          method: 'GET',
+          method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
             Authorization: 'Bearer test-password',
           },
+          body: JSON.stringify({ path: ['private', 'bridge'] }),
         })
       );
     });
