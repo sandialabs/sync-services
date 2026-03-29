@@ -25,7 +25,8 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 - Move client authentication to headers at the gateway boundary.
 - Provide API versioning for forward/backward compatibility.
 - Publish OpenAPI docs with Swagger UI.
-- Forward requests to journal `interface/json` or `/interface` based on content negotiation.
+- Forward general requests to journal `interface/json` or `/interface` based on content negotiation.
+- Forward control requests as raw control calls over the same journal transport endpoints.
 
 ## Non-Goals (Initial)
 
@@ -38,7 +39,7 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 - Compatibility-first: map cleanly to existing `interface` methods and path semantics.
 - Explicitness: routes should clearly encode operation intent.
 - Consistency: final URL segment is always a function name for operation endpoints.
-- URL ergonomics: external routes use URL-safe function aliases instead of Lisp earmuff/punctuation names.
+- URL ergonomics: external routes use URL-safe function aliases instead of Scheme earmuff/punctuation names.
 - Predictability: error responses should be normalized and typed.
 - Evolvability: changes go through versioned routes (`/api/v1/...`).
 - Observability: structured logs, request IDs, and upstream timing should be first-class.
@@ -95,22 +96,24 @@ Gateway route aliases are URL-safe and map to canonical journal function names:
 Gateway keeps endpoint/function contract fixed and uses `Content-Type` to interpret argument format:
 
 - `application/json`: arguments supplied in JSON body.
-- `text/plain` (or `application/lisp`): arguments supplied as Lisp text.
+- `text/plain` (or `application/scheme`): arguments supplied as Scheme text.
 
 Forwarding behavior:
 
-- JSON requests are forwarded to `/interface/json`.
-- Lisp requests are composed by gateway into full Lisp expressions (function + auth + args) and forwarded to `/interface`.
+- General JSON requests are forwarded to `/interface/json` in interface-query shape.
+- General Scheme requests are composed by gateway into full Scheme interface-query expressions and forwarded to `/interface`.
+- Control JSON requests are forwarded to `/interface/json` as raw control arrays such as `["*step*", {"*type/string*":"secret"}]`.
+- Control Scheme requests are forwarded to `/interface` as raw control expressions such as `(*step* "secret")` or `(*step* "secret" query)`.
 
-This keeps authentication/function routing consistent while allowing both JSON and Lisp client ergonomics.
+This keeps authentication/function routing consistent while respecting the difference between general interface queries and raw control calls.
 
 ## Translation Layer
 
 Gateway request -> journal request translation responsibilities:
 
-- HTTP method + route + params/body -> `{ function, arguments, authentication }` (JSON mode) or full Lisp expression (Lisp mode)
+- HTTP method + route + params/body -> `{ function, arguments, authentication }` (JSON mode) or full Scheme expression (Scheme mode)
 - Path normalization and validation (including `*state*`/bridge path conventions).
-- Type normalization for Lisp-sensitive values (`*type/string*`, etc.) when needed.
+- Type normalization for Scheme-sensitive values (`*type/string*`, etc.) when needed.
 - Upstream error mapping into consistent HTTP status + error body.
 
 ## Versioning Strategy
@@ -166,4 +169,4 @@ Gateway request -> journal request translation responsibilities:
 - Route model selected: function-final endpoints under `/api/v1/general/*` and `/api/v1/control/*`.
 - `size` and `info` remain `GET`; operation endpoints are canonical `POST`.
 - `synchronize` is `POST` (for future argument expansion).
-- Content negotiation approach selected: JSON and Lisp support by `Content-Type`.
+- Content negotiation approach selected: JSON and Scheme support by `Content-Type`.

@@ -4,7 +4,7 @@ networks:
 
 services:
   journal:
-    image: ghcr.io/sandialabs/sync-services/general:1.2.1
+    image: ghcr.io/sandialabs/sync-services/general:1.2.2
     container_name: journal
     networks:
       - docker
@@ -34,7 +34,7 @@ services:
       SYNC_WORKBENCH_ENDPOINT: /interface
 
   gateway:
-    image: ghcr.io/sandialabs/sync-services/gateway:1.1.0
+    image: ghcr.io/sandialabs/sync-services/gateway:1.1.1
     container_name: gateway
     networks:
       - docker
@@ -44,9 +44,9 @@ services:
       HOST: 0.0.0.0
       PORT: 80
       JOURNAL_JSON_ENDPOINT: http://journal/interface/json
-      JOURNAL_LISP_ENDPOINT: http://journal/interface
+      JOURNAL_SCHEME_ENDPOINT: http://journal/interface
       CONTROL_JSON_ENDPOINT: http://journal/interface/json
-      CONTROL_LISP_ENDPOINT: http://journal/interface
+      CONTROL_SCHEME_ENDPOINT: http://journal/interface
       REQUEST_TIMEOUT_MS: ${REQUEST_TIMEOUT_MS:-30000}
       ALLOW_ADMIN_ROUTES: "1"
 
@@ -72,7 +72,7 @@ services:
       - "${HTTPS_PORT:-443}:443"
 
   file-system:
-    image: ${FILE_SYSTEM_IMAGE:-ghcr.io/sandialabs/sync-services/file-system:1.1.0}
+    image: ${FILE_SYSTEM_IMAGE:-ghcr.io/sandialabs/sync-services/file-system:1.1.1}
     container_name: file-system
     depends_on:
       - journal

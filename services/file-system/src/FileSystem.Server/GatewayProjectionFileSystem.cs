@@ -642,6 +642,16 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 _cache.SeedFile(@"\control\pin", Array.Empty<byte>());
                 return;
             case ProjectedPathKind.StageSyntheticRoot:
+                SeedSyntheticDirectory(@"\stage");
+                try
+                {
+                    MaterializeContentPath(info, normalized);
+                }
+                catch (FileNotFoundException)
+                {
+                    // An empty staged state still exposes the synthetic \stage root.
+                }
+                return;
             case ProjectedPathKind.StageContent:
             case ProjectedPathKind.LedgerStateContent:
                 MaterializeContentPath(info, normalized);

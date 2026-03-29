@@ -9,7 +9,7 @@ import { instrumentGatewayRequests } from "./metrics";
 import { gatewayRoutes } from "./routes";
 
 const apiDescription = `
-Versioned, function-oriented HTTP gateway over Synchronic journal interfaces.
+Versioned, function-oriented HTTP gateway over Synchronic journal transport endpoints.
 
 Start here:
 - Use GET routes for simple read-only checks: /api/v1/general/size and /api/v1/general/info.
@@ -19,7 +19,7 @@ Start here:
 
 Request bodies:
 - JSON mode uses application/json with keyword arguments as a direct object body.
-- Lisp mode uses text/plain or application/lisp with a raw Lisp arguments expression.
+- Scheme mode uses text/plain or application/scheme with a raw Scheme arguments expression.
 
 Operational notes:
 - General routes are intended for normal app integrations.
@@ -106,7 +106,7 @@ const main = async (): Promise<void> => {
   app.addContentTypeParser("text/plain", { parseAs: "string" }, (_req, body, done) =>
     done(null, body)
   );
-  app.addContentTypeParser("application/lisp", { parseAs: "string" }, (_req, body, done) =>
+  app.addContentTypeParser("application/scheme", { parseAs: "string" }, (_req, body, done) =>
     done(null, body)
   );
 
@@ -125,7 +125,7 @@ const main = async (): Promise<void> => {
         },
         {
           name: "General API (Public)",
-          description: "Public general interface operations that do not require auth.",
+          description: "Public general operations that do not require auth.",
         },
         {
           name: "General API (Restricted)",
@@ -181,9 +181,9 @@ const main = async (): Promise<void> => {
 
   const journal = createJournalClient(
     config.journalJsonEndpoint,
-    config.journalLispEndpoint,
+    config.journalSchemeEndpoint,
     config.controlJsonEndpoint,
-    config.controlLispEndpoint,
+    config.controlSchemeEndpoint,
     config.requestTimeoutMs,
     app.log,
     {

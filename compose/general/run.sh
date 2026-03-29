@@ -56,5 +56,5 @@ else
     run_startup "#t"
 fi
 
-step="((function *step!*) (authentication \"$SECRET\"))"
+step="(*step* \"$SECRET\")"
 RUST_LOG=$RUST_LOG ./journal-sdk -p 80 -c $PERIOD -s "$step" -d database

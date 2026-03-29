@@ -88,11 +88,11 @@ public sealed class HttpGatewayClientTests
 
         Assert.Equal("http://gateway/api/v1/general/batch", handler.LastRequestUri);
         Assert.Equal("Bearer secret-token", handler.LastAuthorization);
-        Assert.Equal("set!", handler.LastBody?["requests"]?[0]?["function"]?.GetValue<string>());
-        Assert.Equal("""[["*state*","docs","a.txt"]]""", handler.LastBody?["requests"]?[0]?["arguments"]?["path"]?.ToJsonString());
-        Assert.Equal("""{"*type/string*":"a"}""", handler.LastBody?["requests"]?[0]?["arguments"]?["value"]?.ToJsonString());
-        Assert.Equal("config", handler.LastBody?["requests"]?[1]?["function"]?.GetValue<string>());
-        Assert.Null(handler.LastBody?["requests"]?[1]?["arguments"]);
+        Assert.Equal("set!", handler.LastBody?["queries"]?[0]?["function"]?.GetValue<string>());
+        Assert.Equal("""[["*state*","docs","a.txt"]]""", handler.LastBody?["queries"]?[0]?["arguments"]?["path"]?.ToJsonString());
+        Assert.Equal("""{"*type/string*":"a"}""", handler.LastBody?["queries"]?[0]?["arguments"]?["value"]?.ToJsonString());
+        Assert.Equal("config", handler.LastBody?["queries"]?[1]?["function"]?.GetValue<string>());
+        Assert.Null(handler.LastBody?["queries"]?[1]?["arguments"]);
         Assert.Equal("batch", result?[0]?["ok"]?.GetValue<string>());
     }
 
@@ -143,7 +143,8 @@ public sealed class HttpGatewayClientTests
         Assert.Equal("""[["*state*","docs"]]""", handler.LastBody?["arguments"]?["path"]?.ToJsonString());
         Assert.Null(handler.LastBody?["arguments"]?["pinned?"]);
         Assert.Null(handler.LastBody?["arguments"]?["proof?"]);
-        Assert.Equal("get", result?["ok"]?.GetValue<string>());
+        Assert.Equal("get", result?["content"]?["ok"]?.GetValue<string>());
+        Assert.Equal(false, result?["pinned?"]?.GetValue<bool>());
     }
 
     [Fact]
@@ -174,10 +175,51 @@ public sealed class HttpGatewayClientTests
 
         Assert.Equal("http://journal/interface/json", handler.LastRequestUri);
         Assert.Equal("batch!", handler.LastBody?["function"]?.GetValue<string>());
-        Assert.Equal("secret-token", handler.LastBody?["authentication"]?["*type/string*"]?.GetValue<string>());
-        Assert.Equal("set!", handler.LastBody?["arguments"]?["requests"]?[0]?["function"]?.GetValue<string>());
-        Assert.Equal("config", handler.LastBody?["arguments"]?["requests"]?[1]?["function"]?.GetValue<string>());
+        Assert.Null(handler.LastBody?["authentication"]);
+        Assert.Equal("set!", handler.LastBody?["arguments"]?["queries"]?[0]?["function"]?.GetValue<string>());
+        Assert.Equal("secret-token", handler.LastBody?["arguments"]?["queries"]?[0]?["authentication"]?["*type/string*"]?.GetValue<string>());
+        Assert.Equal("config", handler.LastBody?["arguments"]?["queries"]?[1]?["function"]?.GetValue<string>());
+        Assert.Null(handler.LastBody?["arguments"]?["queries"]?[1]?["authentication"]);
         Assert.Equal("batch", result?[0]?["ok"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task JournalClient_BatchAsync_CollapsesPureSetWritesIntoSetBatch()
+    {
+        var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://journal/interface/json", UriKind.Absolute),
+            Timeout = TimeSpan.FromSeconds(5),
+        };
+        using var journal = new HttpJournalClient(httpClient, "secret-token");
+
+        await journal.BatchAsync(
+            new GatewayBatchRequest(
+                new[]
+                {
+                    new GatewayBatchOperation(
+                        "set!",
+                        new JsonObject
+                        {
+                            ["path"] = JsonNode.Parse("""[["*state*","docs","a.txt"]]"""),
+                            ["value"] = JsonNode.Parse("""{"*type/string*":"a"}"""),
+                        }),
+                    new GatewayBatchOperation(
+                        "set!",
+                        new JsonObject
+                        {
+                            ["path"] = JsonNode.Parse("""[["*state*","docs","b.txt"]]"""),
+                            ["value"] = JsonNode.Parse("""{"*type/string*":"b"}"""),
+                        }),
+                }),
+            CancellationToken.None);
+
+        Assert.Equal("http://journal/interface/json", handler.LastRequestUri);
+        Assert.Equal("set-batch!", handler.LastBody?["function"]?.GetValue<string>());
+        Assert.Equal("secret-token", handler.LastBody?["authentication"]?["*type/string*"]?.GetValue<string>());
+        Assert.Equal("""[[["*state*","docs","a.txt"]],[["*state*","docs","b.txt"]]]""", handler.LastBody?["arguments"]?["paths"]?.ToJsonString());
+        Assert.Equal("""[{"*type/string*":"a"},{"*type/string*":"b"}]""", handler.LastBody?["arguments"]?["values"]?.ToJsonString());
     }
 
     private sealed class RecordingHttpMessageHandler : HttpMessageHandler

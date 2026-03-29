@@ -1,16 +1,16 @@
 # Synchronic Gateway
 
-Web-facing API gateway for Synchronic `interface` and (optionally) `control` operations.
-It presents a versioned HTTP interface that maps function-oriented journal calls into web-native routes, request schemas, and header-based authentication.
+Web-facing API gateway for Synchronic `general` and (optionally) `control` operations.
+It presents a versioned HTTP API that maps function-oriented journal calls into web-native routes, request schemas, and header-based authentication.
 
 ## What This Service Is For
 
-Use `gateway` when clients should not call the journal interface directly.
+Use `gateway` when clients should not call the raw journal transport endpoints directly.
 It adds:
 
 - stable versioned route paths (`/api/v1/...`)
 - explicit auth headers instead of body-only credentials
-- JSON and Lisp request-body support behind one route shape
+- JSON and Scheme request-body support behind one route shape
 - Swagger/OpenAPI docs for discoverability and onboarding
 - Prometheus-compatible metrics emission at `/metrics`
 - readiness/liveness probes for container orchestration
@@ -57,7 +57,9 @@ npm run start
 - `HOST` (default: `0.0.0.0`)
 - `PORT` (default: `8180`)
 - `JOURNAL_JSON_ENDPOINT` (default: `http://127.0.0.1:8192/interface/json`)
-- `JOURNAL_LISP_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
+- `JOURNAL_SCHEME_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
+- `CONTROL_JSON_ENDPOINT` (default: `http://127.0.0.1:8192/interface/json`)
+- `CONTROL_SCHEME_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
 - `REQUEST_TIMEOUT_MS` (default: `30000`)
 - Request body limit: `64 MiB`
 - `ALLOW_ADMIN_ROUTES` (default: `false`)
@@ -85,7 +87,7 @@ Landing page:
 
 ## Content Negotiation
 
-Gateway supports both JSON and Lisp request bodies for `POST` operation endpoints.
+Gateway supports both JSON and Scheme request bodies for `POST` operation endpoints.
 
 ### JSON Mode
 
@@ -98,12 +100,12 @@ Gateway supports both JSON and Lisp request bodies for `POST` operation endpoint
 
 - Use keyword-style argument object fields directly (for example `{ "path": ... }` for staged reads or `{ "path": ..., "pinned?": true, "proof?": true }` for committed/indexed `resolve` calls).
 
-- Forwarded to: `/interface/json`
+- General routes are forwarded to the raw journal interface transport endpoint: `/interface/json`
 
-### Lisp Mode
+### Scheme Mode
 
-- `Content-Type: text/plain` or `application/lisp`
-- Body: Lisp arguments expression text only (not a full query envelope)
+- `Content-Type: text/plain` or `application/scheme`
+- Body: Scheme arguments expression text only (not a full query envelope)
 
 Example body:
 
@@ -111,9 +113,22 @@ Example body:
 ((path ((*state* docs article hash))) (pinned? #t) (proof? #t))
 ```
 
-Gateway composes the full Lisp call expression and forwards to:
+Gateway composes the full Scheme call expression and forwards to the raw journal transport endpoint:
 
 - `/interface`
+
+### Control Route Forwarding
+
+Control routes do not use the interface query envelope upstream.
+They are forwarded as raw control calls instead:
+
+- JSON mode:
+  - `POST /api/v1/control/step` with `[]` becomes `["*step*", {"*type/string*": "<secret>"}]`
+- Scheme mode:
+  - `POST /api/v1/control/step` with body `()` becomes `(*step* "<secret>")`
+  - `POST /api/v1/control/step` with body `(ledger-step #t)` becomes `(*step* "<secret>" (ledger-step #t))`
+
+This matters because `*step*`, `*set-step*`, and related admin operations are raw control expressions, not general-interface queries.
 
 ## Authentication Headers
 
@@ -189,13 +204,22 @@ curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -d '{"path":[["*state*","docs","article","hash"]]}'
 ```
 
-Restricted Lisp call:
+Restricted Scheme call:
 
 ```bash
 curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -H "Authorization: Bearer password" \
   -H "Content-Type: text/plain" \
   -d '((path ((*state* docs article hash))))'
+```
+
+Restricted control step call:
+
+```bash
+curl -X POST http://127.0.0.1:8180/api/v1/control/step \
+  -H "Authorization: Bearer password" \
+  -H "Content-Type: application/json" \
+  -d '[]'
 ```
 
 Restricted batch call:
@@ -219,7 +243,7 @@ curl -X POST http://127.0.0.1:8180/api/v1/general/batch \
   }'
 ```
 
-Restricted batch call in Lisp mode:
+Restricted batch call in Scheme mode:
 
 ```bash
 curl -X POST http://127.0.0.1:8180/api/v1/general/batch \
@@ -241,7 +265,7 @@ Recommended integration pattern:
 
 1. Use `GET` endpoints for simple public reads (`size`, `info`).
 2. Use `POST /api/v1/general/<operation>` for everything that takes arguments.
-3. Default to JSON in services; use Lisp mode for advanced evaluator-native flows.
+3. Default to JSON in services; use Scheme mode for advanced evaluator-native flows.
 4. Use `batch` when one workflow needs multiple ordered ledger requests under one authenticated call.
 5. Validate payloads in Swagger first, then copy canonical samples into tests.
 

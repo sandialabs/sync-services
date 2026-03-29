@@ -31,7 +31,7 @@ Canonical public paths:
 - `/workbench` -> workbench UI
 
 Compatibility/internal path retained for bridge communication:
-- `/interface` -> raw journal interface
+- `/interface` -> raw journal Scheme interface
 
 `/interface` is intentionally kept for existing journal-to-journal flows such as social-agent bridge wiring, but it is not the preferred public integration surface.
 

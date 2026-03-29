@@ -21,8 +21,8 @@ const getContentType = (request: FastifyRequest): string =>
     .trim()
     .toLowerCase();
 
-const isLispContentType = (contentType: string): boolean =>
-  contentType === "text/plain" || contentType === "application/lisp";
+const isSchemeContentType = (contentType: string): boolean =>
+  contentType === "text/plain" || contentType === "application/scheme";
 
 const isJsonContentType = (contentType: string): boolean =>
   contentType === "application/json" || contentType === "";
@@ -66,13 +66,13 @@ const extractJsonArguments = (body: unknown): unknown => {
   return record;
 };
 
-const extractLispArguments = (body: unknown): string => {
+const extractSchemeArguments = (body: unknown): string => {
   if (typeof body === "string") return body;
   if (Buffer.isBuffer(body)) return body.toString("utf8");
-  throw new Error("Lisp requests must provide plain text argument expression body");
+  throw new Error("Scheme requests must provide plain text argument expression body");
 };
 
-const buildLispExpression = (
+const buildSchemeExpression = (
   functionName: string,
   argsExpression: string,
   authSecret?: string
@@ -82,6 +82,18 @@ const buildLispExpression = (
     parts.push(`(authentication "${escapeLispString(authSecret)}")`);
   }
   return `(${parts.join(" ")})`;
+};
+
+const buildControlSchemeExpression = (
+  functionName: string,
+  argsExpression: string,
+  authSecret: string
+): string => {
+  const trimmed = argsExpression.trim();
+  if (trimmed === "" || trimmed === "()") {
+    return `(${functionName} "${escapeLispString(authSecret)}")`;
+  }
+  return `(${functionName} "${escapeLispString(authSecret)}" ${trimmed})`;
 };
 
 const callWithNegotiation = async (input: {
@@ -95,17 +107,20 @@ const callWithNegotiation = async (input: {
   const authSecret = requiresAuth ? requireAuth(request) : undefined;
   const contentType = getContentType(request);
 
-  if (isLispContentType(contentType)) {
-    const argsExpression = extractLispArguments(request.body);
-    const expression = buildLispExpression(functionName, argsExpression, authSecret);
+  if (isSchemeContentType(contentType)) {
+    const argsExpression = extractSchemeArguments(request.body);
+    const expression =
+      control && authSecret
+        ? buildControlSchemeExpression(functionName, argsExpression, authSecret)
+        : buildSchemeExpression(functionName, argsExpression, authSecret);
     return control
-      ? journal.callControlLisp({ expression, functionName })
-      : journal.callLisp({ expression, functionName });
+      ? journal.callControlScheme({ expression, functionName })
+      : journal.callScheme({ expression, functionName });
   }
 
   if (!isJsonContentType(contentType)) {
     throw new Error(
-      "Unsupported content-type. Use application/json or text/plain (or application/lisp)."
+      "Unsupported content-type. Use application/json or text/plain (or application/scheme)."
     );
   }
 
@@ -151,7 +166,7 @@ const controlAliases = {
 
 const publicGeneralFunctions = new Set<string>(["synchronize", "trace"]);
 const requestModeDescription =
-  "JSON mode: Content-Type application/json with a keyword argument object. Legacy array arguments are also accepted for compatibility. Lisp mode: Content-Type text/plain or application/lisp with a raw Lisp arguments expression (the gateway wraps it into the full interface call).";
+  "JSON mode: Content-Type application/json with a keyword argument object. Legacy array arguments are also accepted for compatibility. Scheme mode: Content-Type text/plain or application/scheme with a raw Scheme arguments expression (the gateway wraps it into the full journal transport call).";
 
 const generalOperationDocs: Record<string, { summary: string; description: string }> = {
   get: {
@@ -228,7 +243,7 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
 
 const controlOperationDocs: Record<string, { summary: string; description: string }> = {
   eval: {
-    summary: "Evaluate Lisp in admin context",
+    summary: "Evaluate Scheme in admin context",
     description:
       "Calls control function `*eval*`. Highly privileged and intended for controlled operations only.",
   },
@@ -262,7 +277,7 @@ const controlOperationDocs: Record<string, { summary: string; description: strin
 const argumentsBodySchema = {
   type: ["array", "object", "string"],
   description:
-    "Object/array for JSON mode, or string for Lisp mode. Preferred JSON form uses keyword arguments as a direct object body.",
+    "Object/array for JSON mode, or string for Scheme mode. Preferred JSON form uses keyword arguments as a direct object body.",
 } as const;
 
 export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
@@ -315,7 +330,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
         <li><a href="/api/v1/docs">Swagger UI</a> (<code>/api/v1/docs</code>)</li>
       </ul>
       <p>
-        Start there for route-by-route schemas, authentication requirements, and JSON/Lisp request-body guidance.
+        Start there for route-by-route schemas, authentication requirements, and JSON/Scheme request-body guidance.
       </p>
     </div>
 
@@ -333,7 +348,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       <ul>
         <li>Public reads: <code>GET /api/v1/general/size</code>, <code>GET /api/v1/general/info</code>.</li>
         <li>Restricted operations: send <code>Authorization: Bearer &lt;secret&gt;</code> or <code>X-Sync-Auth: &lt;secret&gt;</code>.</li>
-        <li>Mutating calls are <code>POST</code> and accept either JSON or Lisp argument bodies.</li>
+        <li>Mutating calls are <code>POST</code> and accept either JSON or Scheme argument bodies.</li>
       </ul>
     </div>
 
@@ -354,7 +369,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   -H "Authorization: Bearer password" \\
   -H "Content-Type: application/json" \\
   -d '{"path":[["*state*","docs"]]}'</code></pre>
-      <p>Lisp body call:</p>
+      <p>Scheme body call:</p>
       <pre><code>curl -X POST http://127.0.0.1:8180/api/v1/general/get \\
   -H "Authorization: Bearer password" \\
   -H "Content-Type: text/plain" \\
@@ -462,8 +477,8 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
           summary:
             generalOperationDocs[operation]?.summary ||
             `General operation '${operation}'`,
-          description: `${generalOperationDocs[operation]?.description || "General interface operation."} ${requestModeDescription}`,
-          consumes: ["application/json", "text/plain", "application/lisp"],
+          description: `${generalOperationDocs[operation]?.description || "General operation."} ${requestModeDescription}`,
+          consumes: ["application/json", "text/plain", "application/scheme"],
           ...(requiresAuth ? { security: restrictedSecurity } : {}),
           body: argumentsBodySchema,
         },
@@ -488,8 +503,8 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
             summary:
               controlOperationDocs[operation]?.summary ||
               `Control operation '${operation}'`,
-            description: `${controlOperationDocs[operation]?.description || "Control interface operation."} ${requestModeDescription}`,
-            consumes: ["application/json", "text/plain", "application/lisp"],
+            description: `${controlOperationDocs[operation]?.description || "Control operation."} ${requestModeDescription}`,
+            consumes: ["application/json", "text/plain", "application/scheme"],
             security: restrictedSecurity,
             body: argumentsBodySchema,
           },
@@ -549,7 +564,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       errorMessage.includes("JSON body must use") ||
       errorMessage.includes("Gateway JSON bodies must provide") ||
       errorMessage.includes("Gateway JSON bodies should provide") ||
-      errorMessage.includes("Lisp requests must provide")
+      errorMessage.includes("Scheme requests must provide")
     ) {
       return reply.code(400).send({
         error: "invalid_request",

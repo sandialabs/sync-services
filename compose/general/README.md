@@ -27,6 +27,9 @@ This compose stack runs one journal with gateway, explorer, workbench, router, a
 
 Gateway note:
 - `ALLOW_ADMIN_ROUTES` is enabled by default in `compose/general/docker-compose.yml`.
+- Public/client-facing API traffic should go to `gateway` under `/api/v1/general/*` and `/api/v1/control/*`.
+- The raw `/interface` endpoint is still present for direct journal transport use and bridge-oriented internals.
+- The journal's periodic scheduler uses the raw control-step call `(*step* "<secret>")`, which depends on the merged `sync-records` control-step pipeline.
 
 ## TLS Behavior
 
@@ -91,7 +94,7 @@ FILE_SYSTEM_IMAGE=sync-services/file-system:dev ./tests/local-compose.sh up
 FILE_SYSTEM_IMAGE=sync-services/file-system:dev ./tests/local-compose.sh smoke
 ```
 
-### Optional Local Lisp Sources
+### Optional Local Scheme Sources
 
 If `LOCAL_LISP_DIRECTORY` is set, the runner serves that directory over a temporary local HTTP server and builds `compose/general` with `LISP_REPOSITORY` pointing at that local server.
 

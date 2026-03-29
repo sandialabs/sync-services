@@ -98,7 +98,7 @@ export const instrumentGatewayRequests = (app: FastifyInstance): void => {
 };
 
 export const recordJournalCall = (input: {
-  mode: "json" | "lisp";
+  mode: "json" | "scheme";
   functionName: string;
   result: "success" | "error";
   durationSeconds: number;

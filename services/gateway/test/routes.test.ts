@@ -8,27 +8,38 @@ import type { JournalCall, JournalClient } from "../src/journal";
 interface MockJournal {
   client: JournalClient;
   jsonCalls: JournalCall[];
-  lispCalls: Array<{ expression: string; functionName: string }>;
+  schemeCalls: Array<{ expression: string; functionName: string }>;
 }
 
 const createMockJournal = (): MockJournal => {
   const jsonCalls: JournalCall[] = [];
-  const lispCalls: Array<{ expression: string; functionName: string }> = [];
+  const schemeCalls: Array<{ expression: string; functionName: string }> = [];
 
   return {
     jsonCalls,
-    lispCalls,
+    schemeCalls,
     client: {
       async callJson(input: JournalCall): Promise<unknown> {
         jsonCalls.push(input);
         return { ok: true, mode: "json", function: input.functionName };
       },
-      async callLisp(input: {
+      async callScheme(input: {
         expression: string;
         functionName: string;
       }): Promise<unknown> {
-        lispCalls.push(input);
-        return { ok: true, mode: "lisp", function: input.functionName };
+        schemeCalls.push(input);
+        return { ok: true, mode: "scheme", function: input.functionName };
+      },
+      async callControlJson(input: JournalCall): Promise<unknown> {
+        jsonCalls.push(input);
+        return { ok: true, mode: "json", function: input.functionName };
+      },
+      async callControlScheme(input: {
+        expression: string;
+        functionName: string;
+      }): Promise<unknown> {
+        schemeCalls.push(input);
+        return { ok: true, mode: "scheme", function: input.functionName };
       },
     },
   };
@@ -42,7 +53,7 @@ const createApp = async (input: {
   app.addContentTypeParser("text/plain", { parseAs: "string" }, (_req, body, done) =>
     done(null, body)
   );
-  app.addContentTypeParser("application/lisp", { parseAs: "string" }, (_req, body, done) =>
+  app.addContentTypeParser("application/scheme", { parseAs: "string" }, (_req, body, done) =>
     done(null, body)
   );
   await app.register(gatewayRoutes, {
@@ -147,14 +158,14 @@ test("POST /api/v1/general/get accepts Lisp payload and wraps expression", async
   });
 
   assert.equal(res.statusCode, 200);
-  assert.equal(mock.lispCalls.length, 1);
-  assert.equal(mock.lispCalls[0].functionName, "get");
-  assert.match(mock.lispCalls[0].expression, /^\(\(function get\) /);
+  assert.equal(mock.schemeCalls.length, 1);
+  assert.equal(mock.schemeCalls[0].functionName, "get");
+  assert.match(mock.schemeCalls[0].expression, /^\(\(function get\) /);
   assert.match(
-    mock.lispCalls[0].expression,
+    mock.schemeCalls[0].expression,
     /\(arguments \(\(\(path \(\(\*state\* docs\)\)\)\)\)\)/
   );
-  assert.match(mock.lispCalls[0].expression, /\(authentication "password"\)/);
+  assert.match(mock.schemeCalls[0].expression, /\(authentication "password"\)/);
 });
 
 test("POST /api/v1/general/batch accepts JSON payload", async (t) => {
@@ -212,21 +223,21 @@ test("POST /api/v1/general/batch accepts Lisp payload and wraps expression", asy
   });
 
   assert.equal(res.statusCode, 200);
-  assert.equal(mock.lispCalls.length, 1);
-  assert.equal(mock.lispCalls[0].functionName, "batch!");
-  assert.match(mock.lispCalls[0].expression, /^\(\(function batch!\) /);
-  assert.ok(mock.lispCalls[0].expression.includes("(queries "));
+  assert.equal(mock.schemeCalls.length, 1);
+  assert.equal(mock.schemeCalls[0].functionName, "batch!");
+  assert.match(mock.schemeCalls[0].expression, /^\(\(function batch!\) /);
+  assert.ok(mock.schemeCalls[0].expression.includes("(queries "));
   assert.ok(
-    mock.lispCalls[0].expression.includes(
+    mock.schemeCalls[0].expression.includes(
       "((function get) (arguments ((path ((*state* docs)))))"
     )
   );
   assert.ok(
-    mock.lispCalls[0].expression.includes(
+    mock.schemeCalls[0].expression.includes(
       "((function config))"
     )
   );
-  assert.match(mock.lispCalls[0].expression, /\(authentication "password"\)/);
+  assert.match(mock.schemeCalls[0].expression, /\(authentication "password"\)/);
 });
 
 test("returns 415 for unsupported content type", async (t) => {
@@ -316,7 +327,13 @@ test("relays journal semantic error payloads as HTTP errors (JSON mode)", async 
         ],
       });
     },
-    async callLisp(): Promise<unknown> {
+    async callScheme(): Promise<unknown> {
+      return { ok: true };
+    },
+    async callControlJson(): Promise<unknown> {
+      return { ok: true };
+    },
+    async callControlScheme(): Promise<unknown> {
       return { ok: true };
     },
   };

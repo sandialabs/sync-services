@@ -16,7 +16,7 @@ SMB_PORT="${SMB_PORT:-445}"
 SECRET="${SECRET:-password}"
 PERIOD="${PERIOD:-2}"
 WINDOW="${WINDOW:-1024}"
-LISP_HTTP_PORT="${LISP_HTTP_PORT:-8765}"
+SCHEME_HTTP_PORT="${SCHEME_HTTP_PORT:-8765}"
 LOCAL_LISP_DIRECTORY="${LOCAL_LISP_DIRECTORY:-}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-60}"
 CONNECT_TIMEOUT_SECONDS="${CONNECT_TIMEOUT_SECONDS:-2}"
@@ -160,16 +160,16 @@ if [ -n "$LOCAL_LISP_DIRECTORY" ]; then
     validate_local_lisp_directory "$LOCAL_LISP_DIRECTORY"
     echo "Using local Lisp directory: $LOCAL_LISP_DIRECTORY"
 
-    echo "Starting temporary local Lisp HTTP server on port $LISP_HTTP_PORT..."
-    python3 -m http.server "$LISP_HTTP_PORT" --bind 127.0.0.1 --directory "$LOCAL_LISP_DIRECTORY" >/tmp/sync-local-lisp-http.log 2>&1 &
+    echo "Starting temporary local Scheme HTTP server on port $SCHEME_HTTP_PORT..."
+    python3 -m http.server "$SCHEME_HTTP_PORT" --bind 127.0.0.1 --directory "$LOCAL_LISP_DIRECTORY" >/tmp/sync-local-lisp-http.log 2>&1 &
     server_pid=$!
     sleep 1
     if ! kill -0 "$server_pid" >/dev/null 2>&1; then
-        echo "Failed to start local Lisp HTTP server. See /tmp/sync-local-lisp-http.log" >&2
+        echo "Failed to start local Scheme HTTP server. See /tmp/sync-local-lisp-http.log" >&2
         exit 1
     fi
 
-    LISP_REPOSITORY_ARG="http://host.docker.internal:${LISP_HTTP_PORT}/"
+    LISP_REPOSITORY_ARG="http://host.docker.internal:${SCHEME_HTTP_PORT}/"
 fi
 
 if [ "$LOCAL_COMPOSE_FORCE_HTTP" = "1" ]; then

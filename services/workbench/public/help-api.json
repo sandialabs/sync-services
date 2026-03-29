@@ -90,8 +90,8 @@
     "permission": "root"
   },
   "*step*": {
-    "description": "Executes a full step cycle: refreshes configured bridges, commits the current staged state, and returns the new chain size.",
-    "template": "(*step* <admin-secret>)",
+    "description": "Executes a full step cycle: by default it refreshes configured bridges, commits the current staged state, and returns the new chain size. An optional query can drive a custom installed step handler operation.",
+    "template": "(*step* <admin-secret> [query])",
     "example": "(*step* \"admin-secret\")",
     "permission": "root"
   },
@@ -102,9 +102,9 @@
     "permission": "root"
   },
   "*set-step*": {
-    "description": "Sets the step handler function that is called during *step* operations. The function receives the root object and admin secret.",
+    "description": "Sets the step handler function that is called during *step* operations. The function receives the root object, admin secret, and optional step query.",
     "template": "(*set-step* <admin-secret> <step-function>)",
-    "example": "(*set-step* \"admin-secret\" (lambda (root secret) ...)",
+    "example": "(*set-step* \"admin-secret\" (lambda (root secret query) ...)",
     "permission": "root"
   },
   "*set-query*": {

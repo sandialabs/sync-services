@@ -38,7 +38,7 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
             arguments["proof?"] = request.Proof;
         }
 
-        return CallFunctionAsync(indexedPath ? "resolve" : "get", arguments, requiresAuth: true, cancellationToken);
+        return GetNormalizedAsync(indexedPath, arguments, cancellationToken);
     }
 
     public Task<JsonNode?> SetAsync(GatewaySetRequest request, CancellationToken cancellationToken)
@@ -54,7 +54,12 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
 
     public Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
     {
-        var requests = new JsonArray();
+        if (TryBuildSetBatchArguments(request, out var setBatchArguments))
+        {
+            return CallFunctionAsync("set-batch!", setBatchArguments, requiresAuth: true, cancellationToken);
+        }
+
+        var queries = new JsonArray();
         foreach (var operation in request.Requests)
         {
             var item = new JsonObject
@@ -67,15 +72,23 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
                 item["arguments"] = operation.Arguments.DeepClone();
             }
 
-            requests.Add(item);
+            if (_authToken is not null && OperationRequiresAuth(operation.Function))
+            {
+                item["authentication"] = new JsonObject
+                {
+                    ["*type/string*"] = _authToken,
+                };
+            }
+
+            queries.Add(item);
         }
 
         var arguments = new JsonObject
         {
-            ["requests"] = requests,
+            ["queries"] = queries,
         };
 
-        return CallFunctionAsync("batch!", arguments, requiresAuth: true, cancellationToken);
+        return BatchNormalizedAsync(request, arguments, cancellationToken);
     }
 
     public async Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
@@ -177,6 +190,88 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
         return parsed;
     }
 
+    private async Task<JsonNode?> GetNormalizedAsync(bool indexedPath, JsonObject arguments, CancellationToken cancellationToken)
+    {
+        var result = await CallFunctionAsync(indexedPath ? "resolve" : "get", arguments, requiresAuth: true, cancellationToken);
+        if (indexedPath)
+        {
+            return result;
+        }
+
+        var content = result?.DeepClone();
+        return new JsonObject
+        {
+            ["content"] = content,
+            ["pinned?"] = false,
+        };
+    }
+
+    private async Task<JsonNode?> BatchNormalizedAsync(GatewayBatchRequest request, JsonObject arguments, CancellationToken cancellationToken)
+    {
+        var result = await CallFunctionAsync("batch!", arguments, requiresAuth: false, cancellationToken);
+        if (result is not JsonArray array)
+        {
+            return result;
+        }
+
+        var normalized = new JsonArray();
+        for (var i = 0; i < request.Requests.Count; i++)
+        {
+            var operation = request.Requests[i];
+            var item = i < array.Count ? array[i] : null;
+            normalized.Add(NormalizeBatchResult(operation, item)?.DeepClone());
+        }
+
+        return normalized;
+    }
+
+    private static bool TryBuildSetBatchArguments(GatewayBatchRequest request, out JsonObject arguments)
+    {
+        var paths = new JsonArray();
+        var values = new JsonArray();
+
+        foreach (var operation in request.Requests)
+        {
+            if (!string.Equals(operation.Function, "set!", StringComparison.Ordinal) || operation.Arguments is null)
+            {
+                arguments = null!;
+                return false;
+            }
+
+            var path = operation.Arguments["path"];
+            var value = operation.Arguments["value"];
+            if (path is null || value is null)
+            {
+                arguments = null!;
+                return false;
+            }
+
+            paths.Add(path.DeepClone());
+            values.Add(value.DeepClone());
+        }
+
+        arguments = new JsonObject
+        {
+            ["paths"] = paths,
+            ["values"] = values,
+        };
+        return true;
+    }
+
+    private static JsonNode? NormalizeBatchResult(GatewayBatchOperation operation, JsonNode? item)
+    {
+        if (!string.Equals(operation.Function, "get", StringComparison.Ordinal))
+        {
+            return item?.DeepClone();
+        }
+
+        return new JsonObject
+        {
+            ["content"] = item?.DeepClone(),
+            ["pinned?"] = false,
+        };
+    }
+
     private static void ThrowSemanticErrorIfPresent(JsonNode? body, HttpStatusCode statusCode)
     {
         if (body is not JsonArray array || array.Count < 3)
@@ -222,4 +317,14 @@ public sealed class HttpJournalClient : IGeneralInterfaceClient, IDisposable
 
     private static bool IsIndexedPath(IReadOnlyList<object> path) =>
         path.Count > 0 && path[0] is sbyte or byte or short or ushort or int or uint or long or ulong;
+
+    private static bool OperationRequiresAuth(string functionName) =>
+        string.Equals(functionName, "set!", StringComparison.Ordinal) ||
+        string.Equals(functionName, "set-batch!", StringComparison.Ordinal) ||
+        string.Equals(functionName, "pin!", StringComparison.Ordinal) ||
+        string.Equals(functionName, "unpin!", StringComparison.Ordinal) ||
+        string.Equals(functionName, "bridge!", StringComparison.Ordinal) ||
+        string.Equals(functionName, "bridge-synchronize!", StringComparison.Ordinal) ||
+        string.Equals(functionName, "*step*", StringComparison.Ordinal) ||
+        string.Equals(functionName, "*secret*", StringComparison.Ordinal);
 }

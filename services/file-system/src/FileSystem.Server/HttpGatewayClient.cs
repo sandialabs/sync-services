@@ -71,7 +71,7 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
 
     public async Task<JsonNode?> BatchAsync(GatewayBatchRequest request, CancellationToken cancellationToken)
     {
-        var requests = new JsonArray();
+        var queries = new JsonArray();
         foreach (var operation in request.Requests)
         {
             var item = new JsonObject
@@ -84,15 +84,29 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
                 item["arguments"] = operation.Arguments.DeepClone();
             }
 
-            requests.Add(item);
+            queries.Add(item);
         }
 
         var arguments = new JsonObject
         {
-            ["requests"] = requests,
+            ["queries"] = queries,
         };
 
-        return await PostGeneralAsync("batch", arguments, cancellationToken);
+        var result = await PostGeneralAsync("batch", arguments, cancellationToken);
+        if (result is not JsonArray array)
+        {
+            return result;
+        }
+
+        var normalized = new JsonArray();
+        for (var i = 0; i < request.Requests.Count; i++)
+        {
+            var operation = request.Requests[i];
+            var item = i < array.Count ? array[i] : null;
+            normalized.Add(NormalizeBatchResult(operation, item)?.DeepClone());
+        }
+
+        return normalized;
     }
 
     public async Task<bool> PinAsync(GatewayPinRequest request, CancellationToken cancellationToken)
@@ -237,6 +251,20 @@ public sealed class HttpGatewayClient : IGeneralInterfaceClient, IDisposable
 
     private static bool IsIndexedPath(IReadOnlyList<object> path) =>
         path.Count > 0 && path[0] is sbyte or byte or short or ushort or int or uint or long or ulong;
+
+    private static JsonNode? NormalizeBatchResult(GatewayBatchOperation operation, JsonNode? item)
+    {
+        if (!string.Equals(operation.Function, "get", StringComparison.Ordinal))
+        {
+            return item?.DeepClone();
+        }
+
+        return new JsonObject
+        {
+            ["content"] = item?.DeepClone(),
+            ["pinned?"] = false,
+        };
+    }
 
     internal static IReadOnlyList<string> ExtractBridgeNames(JsonNode? body)
     {
