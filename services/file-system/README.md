@@ -46,11 +46,11 @@ The loader now supports journal-style entries for:
 The projected namespace now exposes three top-level areas:
 - `/stage`
 - `/ledger`
-- `/control`
+- `/root`
 
-The current control-plane feature is:
-- `/control/pin`
-  - a single synthetic UTF-8 text control file
+The current root-plane feature is:
+- `/root/pin`
+  - a single synthetic UTF-8 text root file
   - reads are discovery-based and render lines like `pinned /ledger/...` or `unpinned /ledger/...`
   - writes accept explicit directives in the same form
   - only `/ledger/...` paths are valid in this file
@@ -79,7 +79,7 @@ The fixture model now also supports symlink entries:
 
 Directory metadata lives behind the scenes on hidden `*directory*` marker entries in the backing model. That marker is not exposed to filesystem users as a projected `.directory` file.
 Projected writes are currently allowed only under `/stage`; `/ledger/...` is treated as read-only in the local mock model.
-Pin/unpin is the current exception: it is exposed through `/control/pin`, not through file metadata or sidecars in the content tree.
+Pin/unpin is the current exception: it is exposed through `/root/pin`, not through file metadata or sidecars in the content tree.
 The current `json` backend now runs through a mock gateway abstraction shaped like `POST /api/v1/general/get` and `POST /api/v1/general/set`, so the SMB projection path already matches the real gateway contract more closely.
 
 Try connecting with `smbclient` after the container starts:
@@ -111,7 +111,7 @@ Targeted local SMB integration checks:
 ./tests/smbclient-smoke.sh
 ./tests/json-projection-smoke.sh
 ./tests/symlink-smoke.sh
-./tests/pin-control-smoke.sh
+./tests/pin-root-smoke.sh
 ./tests/symlink-smoke.sh
 ```
 

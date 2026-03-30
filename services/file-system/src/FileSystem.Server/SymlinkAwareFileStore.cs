@@ -31,8 +31,8 @@ public sealed class SymlinkAwareFileStore : INTFileStore
         fileStatus = FileStatus.FILE_DOES_NOT_EXIST;
 
         var normalized = NormalizePath(path);
-        TraceControlPath($"CreateFile path={normalized} disposition={createDisposition} access={desiredAccess} options={createOptions}");
-        if (IsControlPinFilePath(normalized) && IsCreateLikeDisposition(createDisposition))
+        TraceRootPath($"CreateFile path={normalized} disposition={createDisposition} access={desiredAccess} options={createOptions}");
+        if (IsRootPinFilePath(normalized) && IsCreateLikeDisposition(createDisposition))
         {
             try
             {
@@ -132,7 +132,7 @@ public sealed class SymlinkAwareFileStore : INTFileStore
 
     public NTStatus CloseFile(object handle)
     {
-        TraceControlHandle("CloseFile", handle);
+        TraceRootHandle("CloseFile", handle);
         if (handle is SymlinkHandle or PendingReparseHandle)
         {
             return NTStatus.STATUS_SUCCESS;
@@ -258,7 +258,7 @@ public sealed class SymlinkAwareFileStore : INTFileStore
 
     public NTStatus GetFileInformation(out FileInformation result, object handle, FileInformationClass informationClass)
     {
-        TraceControlHandle($"GetFileInformation infoClass={informationClass}", handle);
+        TraceRootHandle($"GetFileInformation infoClass={informationClass}", handle);
         if (handle is PendingReparseHandle pendingHandle)
         {
             var pendingAttributes = SmbFileAttributes.Normal;
@@ -448,9 +448,9 @@ public sealed class SymlinkAwareFileStore : INTFileStore
 
     public NTStatus SetFileInformation(object handle, FileInformation information)
     {
-        TraceControlHandle($"SetFileInformation infoType={information.GetType().Name}", handle);
-        if (handle is FileHandle controlFileHandle &&
-            IsControlPinFilePath(controlFileHandle.Path) &&
+        TraceRootHandle($"SetFileInformation infoType={information.GetType().Name}", handle);
+        if (handle is FileHandle rootFileHandle &&
+            IsRootPinFilePath(rootFileHandle.Path) &&
             information is FileEndOfFileInformation)
         {
             return NTStatus.STATUS_SUCCESS;
@@ -536,7 +536,7 @@ public sealed class SymlinkAwareFileStore : INTFileStore
 
     public NTStatus DeviceIOControl(object handle, uint ctlCode, byte[] input, out byte[] output, int maxOutputLength)
     {
-        TraceControlHandle($"DeviceIOControl ctlCode=0x{ctlCode:X8}", handle);
+        TraceRootHandle($"DeviceIOControl ctlCode=0x{ctlCode:X8}", handle);
         if (handle is PendingReparseHandle pendingHandle &&
             _symlinkAware != null &&
             ctlCode == (uint)IoControlCode.FSCTL_SET_REPARSE_POINT)
@@ -900,15 +900,15 @@ public sealed class SymlinkAwareFileStore : INTFileStore
         return normalized.Length > 1 ? normalized.TrimEnd('\\') : normalized;
     }
 
-    private static bool IsControlPinFilePath(string path)
+    private static bool IsRootPinFilePath(string path)
     {
         var normalized = NormalizePath(path);
-        return string.Equals(normalized, @"\control\pin", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(normalized, @"\root\pin", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void TraceControlPath(string message)
+    private static void TraceRootPath(string message)
     {
-        if (!message.Contains(@"\control\pin", StringComparison.OrdinalIgnoreCase))
+        if (!message.Contains(@"\root\pin", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -916,17 +916,17 @@ public sealed class SymlinkAwareFileStore : INTFileStore
         Console.WriteLine($"[SymlinkAwareFileStore] {message}");
     }
 
-    private static void TraceControlHandle(string operation, object handle)
+    private static void TraceRootHandle(string operation, object handle)
     {
         switch (handle)
         {
-            case FileHandle fileHandle when IsControlPinFilePath(fileHandle.Path):
+            case FileHandle fileHandle when IsRootPinFilePath(fileHandle.Path):
                 Console.WriteLine($"[SymlinkAwareFileStore] {operation} path={fileHandle.Path}");
                 break;
-            case SymlinkHandle symlinkHandle when IsControlPinFilePath(symlinkHandle.Path):
+            case SymlinkHandle symlinkHandle when IsRootPinFilePath(symlinkHandle.Path):
                 Console.WriteLine($"[SymlinkAwareFileStore] {operation} path={symlinkHandle.Path}");
                 break;
-            case PendingReparseHandle pendingHandle when IsControlPinFilePath(pendingHandle.Path):
+            case PendingReparseHandle pendingHandle when IsRootPinFilePath(pendingHandle.Path):
                 Console.WriteLine($"[SymlinkAwareFileStore] {operation} path={pendingHandle.Path}");
                 break;
         }

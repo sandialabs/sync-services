@@ -39,7 +39,7 @@ public sealed class GrammarValidationWorker : BackgroundService
             ValidateHttpJournalClient();
             ValidateGatewayProjectionFileSystem();
             ValidateContextualNodeListing();
-            ValidatePinControlNamespace();
+            ValidatePinRootNamespace();
             ValidateSymlinkAwareFileStore();
             ValidateGatewayProjectionErrorMapping();
             ValidateGatewayStageMutationFileSystem();
@@ -367,7 +367,7 @@ public sealed class GrammarValidationWorker : BackgroundService
             var rootEntries = fileSystem.ListEntriesInDirectory(@"\");
             Assert(rootEntries.Any(entry => entry.Name == "stage"), "gateway projection root should list stage");
             Assert(rootEntries.Any(entry => entry.Name == "ledger"), "gateway projection root should list ledger");
-            Assert(rootEntries.Any(entry => entry.Name == "control"), "gateway projection root should list control");
+            Assert(rootEntries.Any(entry => entry.Name == "root"), "gateway projection root should list root");
 
             var stageEntries = fileSystem.ListEntriesInDirectory(@"\stage");
             Assert(stageEntries.Any(entry => entry.Name == "hello.txt"), "gateway projection stage should list hello.txt");
@@ -402,32 +402,32 @@ public sealed class GrammarValidationWorker : BackgroundService
         }
     }
 
-    private void ValidatePinControlNamespace()
+    private void ValidatePinRootNamespace()
     {
         var gateway = new RecordingGatewayClient();
         var fileSystem = new GatewayProjectionFileSystem("projection-pin", gateway);
 
         var rootEntries = fileSystem.ListEntriesInDirectory(@"\");
-        Assert(rootEntries.Any(entry => entry.Name == "control"), "gateway projection root should list control");
+        Assert(rootEntries.Any(entry => entry.Name == "root"), "gateway projection root should list root");
 
-        var controlEntries = fileSystem.ListEntriesInDirectory(@"\control");
-        Assert(controlEntries.Any(entry => entry.Name == "pin"), @"\control should list pin");
+        var rootPinEntries = fileSystem.ListEntriesInDirectory(@"\root");
+        Assert(rootPinEntries.Any(entry => entry.Name == "pin"), @"\root should list pin");
 
-        using var beforeDiscover = fileSystem.OpenFile(@"\control\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
+        using var beforeDiscover = fileSystem.OpenFile(@"\root\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var beforeReader = new StreamReader(beforeDiscover, Encoding.UTF8, leaveOpen: false);
         var beforeText = beforeReader.ReadToEnd();
-        Assert(string.IsNullOrEmpty(beforeText), @"\control\pin should start empty before ledger reads");
+        Assert(string.IsNullOrEmpty(beforeText), @"\root\pin should start empty before ledger reads");
 
         using var discoveredRead = fileSystem.OpenFile(@"\ledger\state\written.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var discoveredReader = new StreamReader(discoveredRead, Encoding.UTF8, leaveOpen: false);
         _ = discoveredReader.ReadToEnd();
 
-        using var afterDiscover = fileSystem.OpenFile(@"\control\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
+        using var afterDiscover = fileSystem.OpenFile(@"\root\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var afterReader = new StreamReader(afterDiscover, Encoding.UTF8, leaveOpen: false);
         var afterText = afterReader.ReadToEnd();
-        Assert(afterText.Contains("pinned /ledger/state/written.txt", StringComparison.Ordinal), @"\control\pin should render discovered ledger pin state");
+        Assert(afterText.Contains("pinned /ledger/state/written.txt", StringComparison.Ordinal), @"\root\pin should render discovered ledger pin state");
 
-        using (var writeStream = fileSystem.OpenFile(@"\control\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None))
+        using (var writeStream = fileSystem.OpenFile(@"\root\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None))
         using (var writer = new StreamWriter(writeStream, new UTF8Encoding(false), 1024, leaveOpen: false))
         {
             writer.WriteLine("pinned /ledger/state/hello.txt");
@@ -435,32 +435,32 @@ public sealed class GrammarValidationWorker : BackgroundService
             writer.WriteLine("pinned /ledger/state/docs");
         }
 
-        Assert(string.Equals(gateway.LastPinPathJson, """[-1,["*state*","docs"]]""", StringComparison.Ordinal), "pin control file should pin the listed ledger directory path");
-        Assert(string.Equals(gateway.LastUnpinPathJson, """[-1,["*state*","written.txt"]]""", StringComparison.Ordinal), "pin control file should unpin the listed ledger file path");
+        Assert(string.Equals(gateway.LastPinPathJson, """[-1,["*state*","docs"]]""", StringComparison.Ordinal), "pin root file should pin the listed ledger directory path");
+        Assert(string.Equals(gateway.LastUnpinPathJson, """[-1,["*state*","written.txt"]]""", StringComparison.Ordinal), "pin root file should unpin the listed ledger file path");
 
-        using var afterWrite = fileSystem.OpenFile(@"\control\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
+        using var afterWrite = fileSystem.OpenFile(@"\root\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var afterWriteReader = new StreamReader(afterWrite, Encoding.UTF8, leaveOpen: false);
         var afterWriteText = afterWriteReader.ReadToEnd();
-        Assert(afterWriteText.Contains("pinned /ledger/state/hello.txt", StringComparison.Ordinal), "pin control file should retain pinned file directive");
-        Assert(afterWriteText.Contains("unpinned /ledger/state/written.txt", StringComparison.Ordinal), "pin control file should retain unpinned file directive");
-        Assert(afterWriteText.Contains("pinned /ledger/state/docs", StringComparison.Ordinal), "pin control file should retain pinned directory directive");
+        Assert(afterWriteText.Contains("pinned /ledger/state/hello.txt", StringComparison.Ordinal), "pin root file should retain pinned file directive");
+        Assert(afterWriteText.Contains("unpinned /ledger/state/written.txt", StringComparison.Ordinal), "pin root file should retain unpinned file directive");
+        Assert(afterWriteText.Contains("pinned /ledger/state/docs", StringComparison.Ordinal), "pin root file should retain pinned directory directive");
 
         AssertThrows<InvalidDataException>(
             () =>
             {
-                using var invalidStream = fileSystem.OpenFile(@"\control\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None);
+                using var invalidStream = fileSystem.OpenFile(@"\root\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None);
                 using var invalidWriter = new StreamWriter(invalidStream, new UTF8Encoding(false), 1024, leaveOpen: false);
                 invalidWriter.WriteLine("pinned /stage/hello.txt");
             },
             "/ledger/...");
         AssertThrows<NotSupportedException>(
-            () => fileSystem.Delete(@"\control\pin"),
+            () => fileSystem.Delete(@"\root\pin"),
             "cannot be deleted");
         AssertThrows<NotSupportedException>(
-            () => fileSystem.Move(@"\control\pin", @"\control\pin-new"),
-            "Pin control paths do not support rename.");
+            () => fileSystem.Move(@"\root\pin", @"\root\pin-new"),
+            "Pin root paths do not support rename.");
         AssertThrows<NotSupportedException>(
-            () => fileSystem.CreateDirectory(@"\control\pin"),
+            () => fileSystem.CreateDirectory(@"\root\pin"),
             "a file");
     }
 

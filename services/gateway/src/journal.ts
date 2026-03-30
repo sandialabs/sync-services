@@ -10,8 +10,8 @@ export interface JournalCall {
 export interface JournalClient {
   callJson(input: JournalCall): Promise<unknown>;
   callScheme(input: { expression: string; functionName: string }): Promise<unknown>;
-  callControlJson(input: JournalCall): Promise<unknown>;
-  callControlScheme(input: { expression: string; functionName: string }): Promise<unknown>;
+  callRootJson(input: JournalCall): Promise<unknown>;
+  callRootScheme(input: { expression: string; functionName: string }): Promise<unknown>;
 }
 
 export interface JournalClientOptions {
@@ -105,7 +105,7 @@ const parseResponse = (text: string): unknown => {
   }
 };
 
-const buildControlJsonBody = (input: JournalCall): unknown[] => {
+const buildRootJsonBody = (input: JournalCall): unknown[] => {
   const body: unknown[] = [input.functionName];
   if (input.authentication) {
     body.push({ "*type/string*": input.authentication });
@@ -127,8 +127,8 @@ const buildControlJsonBody = (input: JournalCall): unknown[] => {
 export const createJournalClient = (
   journalJsonEndpoint: string,
   journalSchemeEndpoint: string,
-  controlJsonEndpoint: string,
-  controlSchemeEndpoint: string,
+  rootJsonEndpoint: string,
+  rootSchemeEndpoint: string,
   requestTimeoutMs: number,
   logger: FastifyBaseLogger,
   options: JournalClientOptions = {}
@@ -350,8 +350,8 @@ export const createJournalClient = (
     }): Promise<unknown> {
       return callSchemeEndpoint(journalSchemeEndpoint, input);
     },
-    async callControlJson(input: JournalCall): Promise<unknown> {
-      const requestBody = buildControlJsonBody(input);
+    async callRootJson(input: JournalCall): Promise<unknown> {
+      const requestBody = buildRootJsonBody(input);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
       const startedAt = Date.now();
@@ -359,7 +359,7 @@ export const createJournalClient = (
       if (options.debugForwarding) {
         logger.info(
           {
-            upstream: controlJsonEndpoint,
+            upstream: rootJsonEndpoint,
             mode: "json",
             outboundBody: options.debugForwardingIncludeAuth
               ? requestBody
@@ -378,7 +378,7 @@ export const createJournalClient = (
       }
 
       try {
-        const response = await fetch(controlJsonEndpoint, {
+        const response = await fetch(rootJsonEndpoint, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(requestBody),
@@ -403,7 +403,7 @@ export const createJournalClient = (
         if (options.debugForwarding) {
           logger.info(
             {
-              upstream: controlJsonEndpoint,
+              upstream: rootJsonEndpoint,
               mode: "json",
               statusCode: response.status,
               durationMs: Date.now() - startedAt,
@@ -448,11 +448,11 @@ export const createJournalClient = (
         clearTimeout(timeout);
       }
     },
-    async callControlScheme(input: {
+    async callRootScheme(input: {
       expression: string;
       functionName: string;
     }): Promise<unknown> {
-      return callSchemeEndpoint(controlSchemeEndpoint, input);
+      return callSchemeEndpoint(rootSchemeEndpoint, input);
     },
   };
 };

@@ -23,7 +23,7 @@ Request bodies:
 
 Operational notes:
 - General routes are intended for normal app integrations.
-- Control routes are admin-level and only exposed when ALLOW_ADMIN_ROUTES=1.
+- Root routes are admin-level and only exposed when ALLOW_ADMIN_ROUTES=1.
 `.trim();
 
 const swaggerUiTheme = `
@@ -133,9 +133,9 @@ const main = async (): Promise<void> => {
             "Authenticated general operations for reads/writes, bridge config, and stepping.",
         },
         {
-          name: "Control API (Admin)",
+          name: "Root API (Admin)",
           description:
-            "High-privilege control-plane operations for runtime management and updates.",
+            "High-privilege root-plane operations for runtime management and updates.",
         },
       ],
       components: {
@@ -182,8 +182,8 @@ const main = async (): Promise<void> => {
   const journal = createJournalClient(
     config.journalJsonEndpoint,
     config.journalSchemeEndpoint,
-    config.controlJsonEndpoint,
-    config.controlSchemeEndpoint,
+    config.rootJsonEndpoint,
+    config.rootSchemeEndpoint,
     config.requestTimeoutMs,
     app.log,
     {

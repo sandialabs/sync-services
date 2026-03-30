@@ -7,7 +7,7 @@ Expose journal-backed records as a network-mounted filesystem using a native SMB
 
 ### Authority and persistence
 - Journal is authoritative.
-- SMB service is a projection/control layer.
+- SMB service is a projection/root layer.
 - No local durable mirror of journal content.
 
 ### Access path
@@ -18,7 +18,7 @@ Expose journal-backed records as a network-mounted filesystem using a native SMB
 - Root exposes exactly three top-level namespaces:
   - `/stage`: local mutable working tree
   - `/ledger`: immutable recursive committed-ledger view
-  - `/control`: explicit non-content operational surface
+  - `/root`: explicit non-content operational surface
 - Any ledger peer view exposes exactly three structural children:
   - `/state`: committed document tree for that ledger peer view
   - `/peer/<name>`: related ledger peer
@@ -31,8 +31,8 @@ Expose journal-backed records as a network-mounted filesystem using a native SMB
   - Everything under `/ledger` is immutable for content mutation.
   - Immutable ledger paths may still expose first-class journal properties such as pin state where supported.
   - Pin/unpin is in-scope for MVP as a first-class filesystem capability, but it must map directly to journal pin state rather than any synthetic metadata sidecar.
-- Control namespace:
-- `/control/pin` is a synthetic control file for pin/unpin.
+- Root namespace:
+- `/root/pin` is a synthetic root file for pin/unpin.
 - `/stage` is never pinnable through the filesystem surface.
 
 ### Empty directory convention
@@ -66,7 +66,7 @@ Expose journal-backed records as a network-mounted filesystem using a native SMB
 - `*file-system/file*` should only be introduced when non-default file metadata must be persisted.
 
 ### Content-kind derivation
-- `content-kind` is not stored as separate filesystem control metadata.
+- `content-kind` is not stored as separate filesystem root metadata.
 - It is derived from the actual journal content representation:
   - byte-vector payload => `bytes`
   - any non-byte typed value => `expression`
@@ -149,13 +149,13 @@ Expose journal-backed records as a network-mounted filesystem using a native SMB
 - Delete => `set!(..., ["nothing"])`.
 - `mkdir` => create `*directory*` marker value.
 - Pin/unpin, where exposed, must map directly to first-class journal pin/unpin behavior.
-- `/control/pin` writes map to gateway `pin` / `unpin`, not `set!`.
+- `/root/pin` writes map to gateway `pin` / `unpin`, not `set!`.
 
 ### Read-only rules
 - Content mutation outside `/stage` => `EROFS`.
 - First-class journal properties such as pin state are not mutated through any directory sidecar.
 - Pin/unpin may still be supported on immutable ledger paths because it is not a content mutation.
-- `/control/pin` is writable only as a whole-file control surface for replacing the desired pinned set.
+- `/root/pin` is writable only as a whole-file root surface for replacing the desired pinned set.
 
 ### Write buffering
 - Per-handle in-memory buffer for `/stage` writes.
@@ -210,16 +210,16 @@ Write rules:
 ## 6) Pin Control Namespace
 
 ### Namespace shape
-- `/control/pin` is a single synthetic UTF-8 text file.
+- `/root/pin` is a single synthetic UTF-8 text file.
 - It is the only user-facing pin/unpin surface in the filesystem.
 - The pin namespace must never mirror `/stage/...`.
 
 ### Read behavior
-- Reading `/control/pin` returns newline-delimited pin-state records for ledger paths the filesystem has already discovered by reading those ledger entries.
+- Reading `/root/pin` returns newline-delimited pin-state records for ledger paths the filesystem has already discovered by reading those ledger entries.
 - Each line is one canonical projected ledger path prefixed by either `pinned` or `unpinned`.
 - The file is discovery-based rather than globally complete:
   - reading ledger files and directories may add entries to the current rendered view
-  - directory listing alone does not need to enumerate the full ledger into `/control/pin`
+  - directory listing alone does not need to enumerate the full ledger into `/root/pin`
 - Blank lines are allowed but ignored on parse.
 - The rendered file should be canonicalized:
   - normalized projected `/ledger/...` paths only
@@ -227,7 +227,7 @@ Write rules:
   - duplicates removed
 
 ### Write behavior
-- Writing `/control/pin` applies explicit pin-state directives rather than replacing a globally complete set.
+- Writing `/root/pin` applies explicit pin-state directives rather than replacing a globally complete set.
 - The file content is parsed as UTF-8 newline-delimited directives:
   - `pinned /ledger/...`
   - `unpinned /ledger/...`
@@ -235,7 +235,7 @@ Write rules:
 - `/stage/...` paths are invalid in this file.
 - Invalid lines reject the whole write with `EINVAL`.
 - Repeated directives for the same path are resolved by last-line-wins within that write.
-- Rename and sidecar control files are not part of the pin UX.
+- Rename and sidecar root files are not part of the pin UX.
 
 ### Journal mapping
 - Each listed projected `/ledger/...` path decompiles to the corresponding canonical ledger journal path.
@@ -266,8 +266,8 @@ Write rules:
 - invalid path/envelope/value => `EINVAL`
 - invalid hidden directory-marker data => `EINVAL`
 - read-only content mutation => `EROFS`
-- unsupported/disallowed control metadata op => `EOPNOTSUPP`
-- unsupported operation inside `/control/pin/...` (for example rename or file-content write) => `EOPNOTSUPP`
+- unsupported/disallowed root metadata op => `EOPNOTSUPP`
+- unsupported operation inside `/root/pin/...` (for example rename or file-content write) => `EOPNOTSUPP`
 - upstream timeout/transport failure => `EIO`
 
 ## 9) Deployment and Runtime
@@ -356,7 +356,7 @@ No secrets or full payload content by default.
 
 ### Interop expectations
 - `/ledger/...` content remains read-only.
-- Directory metadata is stored behind the scenes on hidden `*directory*` marker entries rather than projected control files.
+- Directory metadata is stored behind the scenes on hidden `*directory*` marker entries rather than projected root files.
 - Case sensitivity rules must avoid ambiguous collisions.
 - Hidden directory markers do not mirror first-class journal properties like pin state or derived content classification.
 - Hidden directory markers do not mirror metadata about child entries.

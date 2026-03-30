@@ -18,7 +18,7 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 
 ## Scope (Initial)
 
-- Support both `interface` and `control` operations through separate route namespaces.
+- Support both `interface` and `root` operations through separate route namespaces.
 - Keep endpoint consistency with function-final paths (for example `/api/v1/general/get`).
 - Keep simple read aliases (`size`, `info`) as `GET`.
 - Use `POST` as canonical call method for all function-style operations.
@@ -26,7 +26,7 @@ Rationale: this is the lightest-weight path to a maintainable service in the exi
 - Provide API versioning for forward/backward compatibility.
 - Publish OpenAPI docs with Swagger UI.
 - Forward general requests to journal `interface/json` or `/interface` based on content negotiation.
-- Forward control requests as raw control calls over the same journal transport endpoints.
+- Forward root requests as raw root calls over the same journal transport endpoints.
 
 ## Non-Goals (Initial)
 
@@ -65,14 +65,14 @@ General namespace: `/api/v1/general`
 - `POST /api/v1/general/config`
 - `POST /api/v1/general/set-secret` -> journal `*secret*`
 
-Control namespace: `/api/v1/control` (admin only, disable by default)
+Root namespace: `/api/v1/root` (admin only, disable by default)
 
-- `POST /api/v1/control/eval` -> journal `*eval*`
-- `POST /api/v1/control/call` -> journal `*call*`
-- `POST /api/v1/control/step` -> journal `*step*`
-- `POST /api/v1/control/set-secret` -> journal `*set-secret*`
-- `POST /api/v1/control/set-step` -> journal `*set-step*`
-- `POST /api/v1/control/set-query` -> journal `*set-query*`
+- `POST /api/v1/root/eval` -> journal `*eval*`
+- `POST /api/v1/root/call` -> journal `*call*`
+- `POST /api/v1/root/step` -> journal `*step*`
+- `POST /api/v1/root/set-secret` -> journal `*set-secret*`
+- `POST /api/v1/root/set-step` -> journal `*set-step*`
+- `POST /api/v1/root/set-query` -> journal `*set-query*`
 
 ### Route Alias Mapping
 
@@ -84,12 +84,12 @@ Gateway route aliases are URL-safe and map to canonical journal function names:
 - `batch` -> `batch!`
 - `bridge` -> `bridge!`
 - `general/set-secret` -> `*secret*`
-- `control/eval` -> `*eval*`
-- `control/call` -> `*call*`
-- `control/step` -> `*step*`
-- `control/set-secret` -> `*set-secret*`
-- `control/set-step` -> `*set-step*`
-- `control/set-query` -> `*set-query*`
+- `root/eval` -> `*eval*`
+- `root/call` -> `*call*`
+- `root/step` -> `*step*`
+- `root/set-secret` -> `*set-secret*`
+- `root/set-step` -> `*set-step*`
+- `root/set-query` -> `*set-query*`
 
 ## Content Negotiation (Arguments)
 
@@ -102,10 +102,10 @@ Forwarding behavior:
 
 - General JSON requests are forwarded to `/interface/json` in interface-query shape.
 - General Scheme requests are composed by gateway into full Scheme interface-query expressions and forwarded to `/interface`.
-- Control JSON requests are forwarded to `/interface/json` as raw control arrays such as `["*step*", {"*type/string*":"secret"}]`.
-- Control Scheme requests are forwarded to `/interface` as raw control expressions such as `(*step* "secret")` or `(*step* "secret" query)`.
+- Root JSON requests are forwarded to `/interface/json` as raw root arrays such as `["*step*", {"*type/string*":"secret"}]`.
+- Root Scheme requests are forwarded to `/interface` as raw root expressions such as `(*step* "secret")` or `(*step* "secret" query)`.
 
-This keeps authentication/function routing consistent while respecting the difference between general interface queries and raw control calls.
+This keeps authentication/function routing consistent while respecting the difference between general interface queries and raw root calls.
 
 ## Translation Layer
 
@@ -154,7 +154,7 @@ Gateway request -> journal request translation responsibilities:
 ## Open Decisions
 
 1. Whether to keep legacy compatibility aliases like `general-batch` and `general-bridge` after clients finish migrating.
-2. Whether control routes should ship in the first release or remain feature-flagged.
+2. Whether root routes should ship in the first release or remain feature-flagged.
 3. Whether gateway should support fan-out to multiple journals or a single upstream per deployment.
 
 ## Working Notes
@@ -166,7 +166,7 @@ Gateway request -> journal request translation responsibilities:
 
 - Stack selected: TypeScript + Fastify.
 - Default auth input supports both `Authorization: Bearer <secret>` and `X-Sync-Auth: <secret>`.
-- Route model selected: function-final endpoints under `/api/v1/general/*` and `/api/v1/control/*`.
+- Route model selected: function-final endpoints under `/api/v1/general/*` and `/api/v1/root/*`.
 - `size` and `info` remain `GET`; operation endpoints are canonical `POST`.
 - `synchronize` is `POST` (for future argument expansion).
 - Content negotiation approach selected: JSON and Scheme support by `Content-Type`.

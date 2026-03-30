@@ -1,6 +1,6 @@
 # Synchronic Gateway
 
-Web-facing API gateway for Synchronic `general` and (optionally) `control` operations.
+Web-facing API gateway for Synchronic `general` and (optionally) `root` operations.
 It presents a versioned HTTP API that maps function-oriented journal calls into web-native routes, request schemas, and header-based authentication.
 
 ## What This Service Is For
@@ -58,8 +58,8 @@ npm run start
 - `PORT` (default: `8180`)
 - `JOURNAL_JSON_ENDPOINT` (default: `http://127.0.0.1:8192/interface/json`)
 - `JOURNAL_SCHEME_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
-- `CONTROL_JSON_ENDPOINT` (default: `http://127.0.0.1:8192/interface/json`)
-- `CONTROL_SCHEME_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
+- `ROOT_JSON_ENDPOINT` (default: `http://127.0.0.1:8192/interface/json`)
+- `ROOT_SCHEME_ENDPOINT` (default: `http://127.0.0.1:8192/interface`)
 - `REQUEST_TIMEOUT_MS` (default: `30000`)
 - Request body limit: `64 MiB`
 - `ALLOW_ADMIN_ROUTES` (default: `false`)
@@ -117,18 +117,18 @@ Gateway composes the full Scheme call expression and forwards to the raw journal
 
 - `/interface`
 
-### Control Route Forwarding
+### Root Route Forwarding
 
-Control routes do not use the interface query envelope upstream.
-They are forwarded as raw control calls instead:
+Root routes do not use the interface query envelope upstream.
+They are forwarded as raw root calls instead:
 
 - JSON mode:
-  - `POST /api/v1/control/step` with `[]` becomes `["*step*", {"*type/string*": "<secret>"}]`
+  - `POST /api/v1/root/step` with `[]` becomes `["*step*", {"*type/string*": "<secret>"}]`
 - Scheme mode:
-  - `POST /api/v1/control/step` with body `()` becomes `(*step* "<secret>")`
-  - `POST /api/v1/control/step` with body `(ledger-step #t)` becomes `(*step* "<secret>" (ledger-step #t))`
+  - `POST /api/v1/root/step` with body `()` becomes `(*step* "<secret>")`
+  - `POST /api/v1/root/step` with body `(ledger-step #t)` becomes `(*step* "<secret>" (ledger-step #t))`
 
-This matters because `*step*`, `*set-step*`, and related admin operations are raw control expressions, not general-interface queries.
+This matters because `*step*`, `*set-step*`, and related admin operations are raw root expressions, not general-interface queries.
 
 ## Authentication Headers
 
@@ -176,16 +176,16 @@ Included metrics:
 - `POST /api/v1/general/config`
 - `POST /api/v1/general/set-secret`
 
-### Control (disabled by default)
+### Root (disabled by default)
 
 Enable with `ALLOW_ADMIN_ROUTES=1`:
 
-- `POST /api/v1/control/eval`
-- `POST /api/v1/control/call`
-- `POST /api/v1/control/step`
-- `POST /api/v1/control/set-secret`
-- `POST /api/v1/control/set-step`
-- `POST /api/v1/control/set-query`
+- `POST /api/v1/root/eval`
+- `POST /api/v1/root/call`
+- `POST /api/v1/root/step`
+- `POST /api/v1/root/set-secret`
+- `POST /api/v1/root/set-step`
+- `POST /api/v1/root/set-query`
 
 ## Examples
 
@@ -213,10 +213,10 @@ curl -X POST http://127.0.0.1:8180/api/v1/general/get \
   -d '((path ((*state* docs article hash))))'
 ```
 
-Restricted control step call:
+Restricted root step call:
 
 ```bash
-curl -X POST http://127.0.0.1:8180/api/v1/control/step \
+curl -X POST http://127.0.0.1:8180/api/v1/root/step \
   -H "Authorization: Bearer password" \
   -H "Content-Type: application/json" \
   -d '[]'
@@ -286,5 +286,5 @@ Current metrics include:
 
 Operational cautions:
 
-- `control` routes are admin-level and disabled by default.
+- `root` routes are admin-level and disabled by default.
 - `DEBUG_FORWARDING_INCLUDE_AUTH=1` logs raw secrets and should only be used in local debugging.

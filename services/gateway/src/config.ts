@@ -3,8 +3,8 @@ export interface GatewayConfig {
   port: number;
   journalJsonEndpoint: string;
   journalSchemeEndpoint: string;
-  controlJsonEndpoint: string;
-  controlSchemeEndpoint: string;
+  rootJsonEndpoint: string;
+  rootSchemeEndpoint: string;
   requestTimeoutMs: number;
   allowAdminRoutes: boolean;
   debugForwarding: boolean;
@@ -32,10 +32,10 @@ export const getConfig = (): GatewayConfig => ({
     process.env.JOURNAL_JSON_ENDPOINT || "http://127.0.0.1:8192/interface/json",
   journalSchemeEndpoint:
     process.env.JOURNAL_SCHEME_ENDPOINT || "http://127.0.0.1:8192/interface",
-  controlJsonEndpoint:
-    process.env.CONTROL_JSON_ENDPOINT || "http://127.0.0.1:8192/interface/json",
-  controlSchemeEndpoint:
-    process.env.CONTROL_SCHEME_ENDPOINT || "http://127.0.0.1:8192/interface",
+  rootJsonEndpoint:
+    process.env.ROOT_JSON_ENDPOINT || "http://127.0.0.1:8192/interface/json",
+  rootSchemeEndpoint:
+    process.env.ROOT_SCHEME_ENDPOINT || "http://127.0.0.1:8192/interface",
   requestTimeoutMs: toNumber(process.env.REQUEST_TIMEOUT_MS, 30000),
   allowAdminRoutes: toBoolean(process.env.ALLOW_ADMIN_ROUTES, false),
   debugForwarding: toBoolean(process.env.DEBUG_FORWARDING, false),

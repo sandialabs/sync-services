@@ -30,11 +30,11 @@ const createMockJournal = (): MockJournal => {
         schemeCalls.push(input);
         return { ok: true, mode: "scheme", function: input.functionName };
       },
-      async callControlJson(input: JournalCall): Promise<unknown> {
+      async callRootJson(input: JournalCall): Promise<unknown> {
         jsonCalls.push(input);
         return { ok: true, mode: "json", function: input.functionName };
       },
-      async callControlScheme(input: {
+      async callRootScheme(input: {
         expression: string;
         functionName: string;
       }): Promise<unknown> {
@@ -276,13 +276,13 @@ test("returns 400 for JSON arguments wrapper", async (t) => {
   assert.equal(res.json().error, "invalid_request");
 });
 
-test("admin control routes are disabled unless explicitly enabled", async (t) => {
+test("admin root routes are disabled unless explicitly enabled", async (t) => {
   const app = await createApp({ allowAdminRoutes: false });
   t.after(async () => app.close());
 
   const res = await app.inject({
     method: "POST",
-    url: "/api/v1/control/step",
+    url: "/api/v1/root/step",
     headers: { authorization: "Bearer password", "content-type": "application/json" },
     payload: [],
   });
@@ -290,14 +290,14 @@ test("admin control routes are disabled unless explicitly enabled", async (t) =>
   assert.equal(res.statusCode, 404);
 });
 
-test("admin control routes forward when enabled", async (t) => {
+test("admin root routes forward when enabled", async (t) => {
   const mock = createMockJournal();
   const app = await createApp({ allowAdminRoutes: true, journal: mock.client });
   t.after(async () => app.close());
 
   const res = await app.inject({
     method: "POST",
-    url: "/api/v1/control/step",
+    url: "/api/v1/root/step",
     headers: {
       authorization: "Bearer password",
       "content-type": "application/json",
@@ -330,10 +330,10 @@ test("relays journal semantic error payloads as HTTP errors (JSON mode)", async 
     async callScheme(): Promise<unknown> {
       return { ok: true };
     },
-    async callControlJson(): Promise<unknown> {
+    async callRootJson(): Promise<unknown> {
       return { ok: true };
     },
-    async callControlScheme(): Promise<unknown> {
+    async callRootScheme(): Promise<unknown> {
       return { ok: true };
     },
   };

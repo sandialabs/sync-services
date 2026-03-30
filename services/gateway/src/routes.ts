@@ -84,7 +84,7 @@ const buildSchemeExpression = (
   return `(${parts.join(" ")})`;
 };
 
-const buildControlSchemeExpression = (
+const buildRootSchemeExpression = (
   functionName: string,
   argsExpression: string,
   authSecret: string
@@ -101,20 +101,20 @@ const callWithNegotiation = async (input: {
   journal: JournalClient;
   functionName: string;
   requiresAuth: boolean;
-  control?: boolean;
+  root?: boolean;
 }): Promise<unknown> => {
-  const { request, journal, functionName, requiresAuth, control = false } = input;
+  const { request, journal, functionName, requiresAuth, root = false } = input;
   const authSecret = requiresAuth ? requireAuth(request) : undefined;
   const contentType = getContentType(request);
 
   if (isSchemeContentType(contentType)) {
     const argsExpression = extractSchemeArguments(request.body);
     const expression =
-      control && authSecret
-        ? buildControlSchemeExpression(functionName, argsExpression, authSecret)
+      root && authSecret
+        ? buildRootSchemeExpression(functionName, argsExpression, authSecret)
         : buildSchemeExpression(functionName, argsExpression, authSecret);
-    return control
-      ? journal.callControlScheme({ expression, functionName })
+    return root
+      ? journal.callRootScheme({ expression, functionName })
       : journal.callScheme({ expression, functionName });
   }
 
@@ -125,8 +125,8 @@ const callWithNegotiation = async (input: {
   }
 
   const args = extractJsonArguments(request.body);
-  return control
-    ? journal.callControlJson({
+  return root
+    ? journal.callRootJson({
         functionName,
         args,
         authentication: authSecret,
@@ -155,7 +155,7 @@ const generalAliases = {
   "set-secret": "*secret*",
 } as const;
 
-const controlAliases = {
+const rootAliases = {
   eval: "*eval*",
   call: "*call*",
   step: "*step*",
@@ -177,7 +177,7 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
   set: {
     summary: "Stage a state write",
     description:
-      "Calls general function `set!`. Writes to staged state; pair with control `step` for durable chain progression.",
+      "Calls general function `set!`. Writes to staged state; pair with root `step` for durable chain progression.",
   },
   pin: {
     summary: "Pin state/proof into permanent history",
@@ -241,36 +241,36 @@ const generalOperationDocs: Record<string, { summary: string; description: strin
   },
 };
 
-const controlOperationDocs: Record<string, { summary: string; description: string }> = {
+const rootOperationDocs: Record<string, { summary: string; description: string }> = {
   eval: {
     summary: "Evaluate Scheme in admin context",
     description:
-      "Calls control function `*eval*`. Highly privileged and intended for controlled operations only.",
+      "Calls root function `*eval*`. Highly privileged and intended for tightly controlled operations only.",
   },
   call: {
     summary: "Invoke function against root object",
     description:
-      "Calls control function `*call*`. Supports runtime-level updates and administrative transformations.",
+      "Calls root function `*call*`. Supports runtime-level updates and administrative transformations.",
   },
   step: {
-    summary: "Execute full control step cycle",
+    summary: "Execute full root step cycle",
     description:
-      "Calls control function `*step*`. Triggers configured step handler pipeline.",
+      "Calls root function `*step*`. Triggers configured step handler pipeline.",
   },
   "set-secret": {
-    summary: "Rotate admin/control secret",
+    summary: "Rotate admin/root secret",
     description:
-      "Calls control function `*set-secret*`. Changes root control credential.",
+      "Calls root function `*set-secret*`. Changes the root credential.",
   },
   "set-step": {
     summary: "Replace step handler",
     description:
-      "Calls control function `*set-step*`. Updates control-plane step function at runtime.",
+      "Calls root function `*set-step*`. Updates the root-plane step function at runtime.",
   },
   "set-query": {
     summary: "Replace query handler",
     description:
-      "Calls control function `*set-query*`. Updates control-plane query function at runtime.",
+      "Calls root function `*set-query*`. Updates the root-plane query function at runtime.",
   },
 };
 
@@ -284,6 +284,8 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   app,
   { journal, allowAdminRoutes }
 ) => {
+  const rootRoutePath = "/api/v1/root";
+
   app.get("/", async (_request, reply) =>
     reply.type("text/html").send(`<!doctype html>
 <html lang="en">
@@ -316,7 +318,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   <body>
     <h1>Synchronic Gateway</h1>
     <p>
-      Web-facing gateway for Synchronic <code>general</code> and optional <code>control</code> operations.
+      Web-facing gateway for Synchronic <code>general</code> and optional <code>root</code> operations.
       This service forwards operation calls to journal endpoints with header-based authentication.
     </p>
     <p>
@@ -338,7 +340,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
       <h2>Route Groups</h2>
       <ul>
         <li><code>/api/v1/general/*</code>: primary app-facing operations.</li>
-        <li><code>/api/v1/control/*</code>: admin operations (only when enabled).</li>
+        <li><code>/api/v1/root/*</code>: admin operations (only when enabled).</li>
         <li><code>/healthz</code> and <code>/readyz</code>: container and dependency probes.</li>
       </ul>
     </div>
@@ -494,16 +496,16 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
   }
 
   if (allowAdminRoutes) {
-    for (const [operation, functionName] of Object.entries(controlAliases)) {
+    for (const [operation, functionName] of Object.entries(rootAliases)) {
       app.post(
-        `/api/v1/control/${operation}`,
+        `${rootRoutePath}/${operation}`,
         {
           schema: {
-            tags: ["Control API (Admin)"],
+            tags: ["Root API (Admin)"],
             summary:
-              controlOperationDocs[operation]?.summary ||
-              `Control operation '${operation}'`,
-            description: `${controlOperationDocs[operation]?.description || "Control operation."} ${requestModeDescription}`,
+              rootOperationDocs[operation]?.summary ||
+              `Root operation '${operation}'`,
+            description: `${rootOperationDocs[operation]?.description || "Root operation."} ${requestModeDescription}`,
             consumes: ["application/json", "text/plain", "application/scheme"],
             security: restrictedSecurity,
             body: argumentsBodySchema,
@@ -515,7 +517,7 @@ export const gatewayRoutes: FastifyPluginAsync<GatewayRoutesOptions> = async (
             journal,
             functionName,
             requiresAuth: true,
-            control: true,
+            root: true,
           })
       );
     }

@@ -86,7 +86,7 @@
   "*call*": {
     "description": "Calls a function with the root object as an argument. The function receives direct access to the root data structure.",
     "template": "(*call* <admin-secret> <function>)",
-    "example": "(*call* \"admin-secret\" (lambda (root) ((root 'get) '(control object ledger))))",
+    "example": "(*call* \"admin-secret\" (lambda (root) ((root 'get) '(root object ledger))))",
     "permission": "root"
   },
   "*step*": {

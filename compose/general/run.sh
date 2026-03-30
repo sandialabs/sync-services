@@ -35,13 +35,13 @@ resolve_lisp_file() {
 
 run_startup() {
     clear_flag="$1"
-    control=$( cat "$(resolve_lisp_file control.scm)" )
+    root=$( cat "$(resolve_lisp_file root.scm)" )
     standard=$( cat "$(resolve_lisp_file standard.scm)" )
     chain=$( cat "$(resolve_lisp_file log-chain.scm)" )
     tree=$( cat "$(resolve_lisp_file tree.scm)" )
     ledger=$( cat "$(resolve_lisp_file ledger.scm)" )
     interface=$( cat "$(resolve_lisp_file interface.scm)" )
-    expr="($interface $clear_flag \"$SECRET\" \"$SECRET\" $WINDOW $control '$standard '$chain '$tree '$ledger)"
+    expr="($interface $clear_flag \"$SECRET\" \"$SECRET\" $WINDOW $root '$standard '$chain '$tree '$ledger)"
     if [ "$clear_flag" = "#f" ]; then
         expr="(*eval* \"$SECRET\" $expr)"
     fi

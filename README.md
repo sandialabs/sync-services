@@ -6,7 +6,7 @@ Monorepo for the Synchronic journal compose stack plus two web UIs:
 - `workbench` for developer-oriented journal queries
 - `gateway` for versioned web-native API routes and Swagger docs over journal interfaces
 - `router` for edge routing and optional TLS termination
-- `file-system` for SMB projection of `/stage`, `/ledger`, and `/control`
+- `file-system` for SMB projection of `/stage`, `/ledger`, and `/root`
 
 ## Quick Start
 

@@ -30,8 +30,8 @@ The explorer UI should be organized around:
 - `stage`
 - `ledger`
 
-There should be no explorer-side `control` namespace.
-In the file-system service, `control` exists as a workaround for non-filesystem operations.
+There should be no explorer-side `root` namespace.
+In the file-system service, `root` exists as a workaround for non-filesystem operations.
 In the explorer, those behaviors already belong in explicit UI actions such as pin/unpin, so they should not be represented as a browsable tree.
 
 This stage/ledger split should become the primary browsing model in the UI.
@@ -143,7 +143,7 @@ This should follow the same semantics already used by the file-system layer in:
 - `services/file-system/src/FileSystem.Server/JournalPathMapper.cs`
 
 The explorer should not literally call the file-system service, but it should mimic its namespace and path semantics.
-It should also intentionally omit the file-system service's `control` namespace.
+It should also intentionally omit the file-system service's `root` namespace.
 
 ### 5. Internal Representation Boundary
 

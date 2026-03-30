@@ -6,7 +6,7 @@ SMBCLIENT_BIN="${SMBCLIENT_BIN:-smbclient}"
 HOST="${SMB_HOST:-127.0.0.1}"
 SHARE_NAME="${SHARE_NAME:-sync}"
 WAIT_TIMEOUT_SECONDS="${WAIT_TIMEOUT_SECONDS:-30}"
-WORK_DIR="${WORK_DIR:-/tmp/sync-fs-pin-control-smoke}"
+WORK_DIR="${WORK_DIR:-/tmp/sync-fs-pin-root-smoke}"
 
 SYNC_FS_GATEWAY_BASE_URL="${SYNC_FS_GATEWAY_BASE_URL:-}"
 SYNC_FS_GATEWAY_AUTH_TOKEN="${SYNC_FS_GATEWAY_AUTH_TOKEN:-}"
@@ -79,7 +79,7 @@ run_backend() {
 }
 
 ROOT_LISTING="$WORK_DIR/root-ls.txt"
-CONTROL_PIN="$WORK_DIR/control-pin.txt"
+ROOT_PIN="$WORK_DIR/root-pin.txt"
 WRITE_FILE="$WORK_DIR/pin-write.txt"
 DISCOVER_TODO="$WORK_DIR/discover-todo.txt"
 DISCOVER_HELLO="$WORK_DIR/discover-hello.txt"
@@ -91,24 +91,24 @@ wait_for_share
 
 echo "Listing root..."
 run_command "ls" > "$ROOT_LISTING"
-assert_contains "$ROOT_LISTING" "control" "root listing"
+assert_contains "$ROOT_LISTING" "root" "root listing"
 
-echo "Reading control/pin..."
+echo "Reading root/pin..."
 
 if [ -z "$SYNC_FS_GATEWAY_BASE_URL" ]; then
     echo "Discovering ledger paths..."
     run_command "get ledger/state/notes/todo.txt $DISCOVER_TODO"
     run_command "get ledger/state/hello.txt $DISCOVER_HELLO"
-    run_command "get control/pin $CONTROL_PIN"
-    assert_contains "$CONTROL_PIN" "pinned /ledger/state/notes/todo.txt" "mock pin control file"
-    assert_contains "$CONTROL_PIN" "unpinned /ledger/state/hello.txt" "mock pin control file"
+    run_command "get root/pin $ROOT_PIN"
+    assert_contains "$ROOT_PIN" "pinned /ledger/state/notes/todo.txt" "mock pin root file"
+    assert_contains "$ROOT_PIN" "unpinned /ledger/state/hello.txt" "mock pin root file"
     printf 'pinned /ledger/state/hello.txt\nunpinned /ledger/state/notes/todo.txt\n' > "$WRITE_FILE"
-    echo "Writing updated control/pin directives..."
-    run_command "put $WRITE_FILE control/pin"
-    run_command "get control/pin $CONTROL_PIN"
-    assert_contains "$CONTROL_PIN" "pinned /ledger/state/hello.txt" "updated mock pin control file"
-    assert_contains "$CONTROL_PIN" "unpinned /ledger/state/notes/todo.txt" "updated mock pin control file"
-    echo "PASS: pin control file smoke checks succeeded against mock gateway."
+    echo "Writing updated root/pin directives..."
+    run_command "put $WRITE_FILE root/pin"
+    run_command "get root/pin $ROOT_PIN"
+    assert_contains "$ROOT_PIN" "pinned /ledger/state/hello.txt" "updated mock pin root file"
+    assert_contains "$ROOT_PIN" "unpinned /ledger/state/notes/todo.txt" "updated mock pin root file"
+    echo "PASS: pin root file smoke checks succeeded against mock gateway."
     exit 0
 fi
 
@@ -117,25 +117,25 @@ if [ -n "$PIN_TARGET_PATH" ]; then
     echo "Discovering live target $PIN_TARGET_PATH..."
     run_command "$DISCOVER_COMMAND"
 fi
-run_command "get control/pin $CONTROL_PIN"
+run_command "get root/pin $ROOT_PIN"
 
-echo "Live gateway control/pin is readable."
+echo "Live gateway root/pin is readable."
 if [ -z "$PIN_TARGET_PATH" ]; then
-    echo "PASS: control/pin read succeeded against live gateway."
+    echo "PASS: root/pin read succeeded against live gateway."
     echo "No explicit live pin target was provided; skipping write mutation."
     exit 0
 fi
 
 printf 'pinned %s\n' "$PIN_TARGET_PATH" > "$WRITE_FILE"
-echo "Pinning $PIN_TARGET_PATH via control/pin..."
-run_command "put $WRITE_FILE control/pin"
-run_command "get control/pin $CONTROL_PIN"
-assert_contains "$CONTROL_PIN" "pinned $PIN_TARGET_PATH" "live pin control file after pin"
+echo "Pinning $PIN_TARGET_PATH via root/pin..."
+run_command "put $WRITE_FILE root/pin"
+run_command "get root/pin $ROOT_PIN"
+assert_contains "$ROOT_PIN" "pinned $PIN_TARGET_PATH" "live pin root file after pin"
 
 printf 'unpinned %s\n' "$PIN_TARGET_PATH" > "$WRITE_FILE"
-echo "Unpinning $PIN_TARGET_PATH via control/pin..."
-run_command "put $WRITE_FILE control/pin"
-run_command "get control/pin $CONTROL_PIN"
-assert_contains "$CONTROL_PIN" "unpinned $PIN_TARGET_PATH" "live pin control file after unpin"
+echo "Unpinning $PIN_TARGET_PATH via root/pin..."
+run_command "put $WRITE_FILE root/pin"
+run_command "get root/pin $ROOT_PIN"
+assert_contains "$ROOT_PIN" "unpinned $PIN_TARGET_PATH" "live pin root file after unpin"
 
-echo "PASS: control/pin read/write succeeded against live gateway."
+echo "PASS: root/pin read/write succeeded against live gateway."

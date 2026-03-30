@@ -28,8 +28,8 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         SeedSyntheticDirectory(@"\stage");
         SeedSyntheticDirectory(@"\ledger");
         SeedChainNode(@"\ledger");
-        SeedSyntheticDirectory(@"\control");
-        _cache.SeedFile(@"\control\pin", Array.Empty<byte>());
+        SeedSyntheticDirectory(@"\root");
+        _cache.SeedFile(@"\root\pin", Array.Empty<byte>());
     }
 
     public string Name => _name;
@@ -45,12 +45,12 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         var normalized = NormalizePath(path);
         TraceOperation($"GetEntry path={normalized}");
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
-            return ExecuteRead(path, () => BuildPinControlFileEntry());
+            return ExecuteRead(path, () => BuildPinRootFileEntry());
         }
 
-        if (info.Kind == ProjectedPathKind.ControlSyntheticRoot)
+        if (info.Kind == ProjectedPathKind.RootSyntheticRoot)
         {
             return ExecuteRead(path, () => _cache.GetEntry(normalized));
         }
@@ -70,9 +70,9 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         var normalized = NormalizePath(path);
         TraceOperation($"CreateFile path={normalized}");
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
-            return ExecuteWrite(path, () => BuildPinControlFileEntry());
+            return ExecuteWrite(path, () => BuildPinRootFileEntry());
         }
 
         RejectSyntheticDirectoryControlMutation(normalized);
@@ -96,9 +96,9 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         var normalized = NormalizePath(path);
         TraceOperation($"CreateDirectory path={normalized}");
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
-            throw new NotSupportedException("The pin control path is a file.");
+            throw new NotSupportedException("The pin root path is a file.");
         }
 
         RejectSyntheticDirectoryControlMutation(normalized);
@@ -156,9 +156,9 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         TraceOperation($"Move source={normalizedSource} destination={normalizedDestination}");
         var sourceInfo = ParsePath(normalizedSource);
         var destinationInfo = ParsePath(normalizedDestination);
-        if (sourceInfo.Kind == ProjectedPathKind.ControlPinFile || destinationInfo.Kind == ProjectedPathKind.ControlPinFile)
+        if (sourceInfo.Kind == ProjectedPathKind.RootPinFile || destinationInfo.Kind == ProjectedPathKind.RootPinFile)
         {
-            throw new NotSupportedException("Pin control paths do not support rename.");
+            throw new NotSupportedException("Pin root paths do not support rename.");
         }
 
         RejectSyntheticDirectoryControlMutation(normalizedSource);
@@ -248,9 +248,9 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         var normalized = NormalizePath(path);
         TraceOperation($"Delete path={normalized}");
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
-            throw new NotSupportedException("The pin control file cannot be deleted.");
+            throw new NotSupportedException("The pin root file cannot be deleted.");
         }
 
         RejectSyntheticDirectoryControlMutation(normalized);
@@ -293,12 +293,12 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         TraceOperation($"ListEntriesInDirectory path={NormalizePath(path)}");
         var normalized = NormalizePath(path);
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
-            return ExecuteRead(path, () => new List<FileSystemEntry> { BuildPinControlFileEntry() });
+            return ExecuteRead(path, () => new List<FileSystemEntry> { BuildPinRootFileEntry() });
         }
 
-        if (info.Kind == ProjectedPathKind.ControlSyntheticRoot)
+        if (info.Kind == ProjectedPathKind.RootSyntheticRoot)
         {
             return ExecuteRead(path, () => _cache.ListEntriesInDirectory(normalized));
         }
@@ -373,11 +373,11 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         var normalized = NormalizePath(path);
         TraceOperation($"OpenFile path={normalized} mode={mode} access={access} share={share} options={options}");
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
             if (access == FileAccess.Read && mode == FileMode.Open)
             {
-                return ExecuteRead(path, () => new MemoryStream(RenderPinControlFileBytes(), writable: false));
+                return ExecuteRead(path, () => new MemoryStream(RenderPinRootFileBytes(), writable: false));
             }
 
             if (access != FileAccess.Read &&
@@ -385,13 +385,13 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             {
                 return ExecuteWrite(path, () =>
                     new GatewayStageWriteStream(
-                        mode == FileMode.Append ? RenderPinControlFileBytes() : Array.Empty<byte>(),
+                        mode == FileMode.Append ? RenderPinRootFileBytes() : Array.Empty<byte>(),
                         append: mode == FileMode.Append,
                         onCommit: ReplacePinnedSet,
                         onClosed: static () => { }));
             }
 
-            throw new NotSupportedException("Unsupported control pin file operation.");
+            throw new NotSupportedException("Unsupported root pin file operation.");
         }
 
         if (CanWriteStagePath(path) && (access != FileAccess.Read || mode != FileMode.Open))
@@ -465,7 +465,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         TraceOperation($"SetAttributes path={NormalizePath(path)} hidden={isHidden?.ToString() ?? "null"} readonly={isReadonly?.ToString() ?? "null"} archived={isArchived?.ToString() ?? "null"}");
         var normalized = NormalizePath(path);
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
             return;
         }
@@ -563,7 +563,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         TraceOperation($"SetDates path={NormalizePath(path)} creation={creationDT?.ToString("O") ?? "null"} write={lastWriteDT?.ToString("O") ?? "null"} access={lastAccessDT?.ToString("O") ?? "null"}");
         var normalized = NormalizePath(path);
         var info = ParsePath(normalized);
-        if (info.Kind == ProjectedPathKind.ControlPinFile)
+        if (info.Kind == ProjectedPathKind.RootPinFile)
         {
             return;
         }
@@ -604,8 +604,8 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         {
             case ProjectedPathKind.Root:
             case ProjectedPathKind.StageSyntheticRoot:
-            case ProjectedPathKind.ControlPinFile:
-            case ProjectedPathKind.ControlSyntheticRoot:
+            case ProjectedPathKind.RootPinFile:
+            case ProjectedPathKind.RootSyntheticRoot:
             case ProjectedPathKind.LedgerSyntheticRoot:
             case ProjectedPathKind.LedgerNodeContainer:
             case ProjectedPathKind.LedgerPreviousContainer:
@@ -631,15 +631,15 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             case ProjectedPathKind.Root:
                 SeedSyntheticDirectory(@"\stage");
                 SeedSyntheticDirectory(@"\ledger");
-                SeedSyntheticDirectory(@"\control");
+                SeedSyntheticDirectory(@"\root");
                 return;
-            case ProjectedPathKind.ControlSyntheticRoot:
-                SeedSyntheticDirectory(@"\control");
-                _cache.SeedFile(@"\control\pin", Array.Empty<byte>());
+            case ProjectedPathKind.RootSyntheticRoot:
+                SeedSyntheticDirectory(@"\root");
+                _cache.SeedFile(@"\root\pin", Array.Empty<byte>());
                 return;
-            case ProjectedPathKind.ControlPinFile:
-                SeedSyntheticDirectory(@"\control");
-                _cache.SeedFile(@"\control\pin", Array.Empty<byte>());
+            case ProjectedPathKind.RootPinFile:
+                SeedSyntheticDirectory(@"\root");
+                _cache.SeedFile(@"\root\pin", Array.Empty<byte>());
                 return;
             case ProjectedPathKind.StageSyntheticRoot:
                 SeedSyntheticDirectory(@"\stage");
@@ -1032,13 +1032,13 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         SeedSyntheticDirectory(CombinePath(path, "previous"));
     }
 
-    private FileSystemEntry BuildPinControlFileEntry()
+    private FileSystemEntry BuildPinRootFileEntry()
     {
-        _cache.SeedFile(@"\control\pin", RenderPinControlFileBytes());
-        return _cache.GetEntry(@"\control\pin");
+        _cache.SeedFile(@"\root\pin", RenderPinRootFileBytes());
+        return _cache.GetEntry(@"\root\pin");
     }
 
-    private byte[] RenderPinControlFileBytes()
+    private byte[] RenderPinRootFileBytes()
     {
         var lines = _discoveredPinStates
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
@@ -1049,13 +1049,13 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
     private void ReplacePinnedSet(byte[] bytes)
     {
-        var desired = ParsePinControlDirectives(bytes);
+        var desired = ParsePinRootDirectives(bytes);
         foreach (var pair in desired)
         {
             var info = ParsePath(pair.Key);
             if (info.Kind == ProjectedPathKind.Invalid || info.JournalPath == null || !pair.Key.StartsWith(@"\ledger\", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"Invalid pin control path: {pair.Key.Replace('\\', '/')}");
+                throw new InvalidDataException($"Invalid pin root path: {pair.Key.Replace('\\', '/')}");
             }
 
             var success = pair.Value
@@ -1070,7 +1070,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         }
     }
 
-    private static Dictionary<string, bool> ParsePinControlDirectives(byte[] bytes)
+    private static Dictionary<string, bool> ParsePinRootDirectives(byte[] bytes)
     {
         var text = Encoding.UTF8.GetString(bytes).Replace("\0", string.Empty, StringComparison.Ordinal);
         if (text.Length > 0 && text[0] == '\uFEFF')
@@ -1091,7 +1091,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             var firstSpace = trimmed.IndexOf(' ');
             if (firstSpace <= 0 || firstSpace == trimmed.Length - 1)
             {
-                throw new InvalidDataException($"Invalid pin control line: {trimmed}");
+                throw new InvalidDataException($"Invalid pin root line: {trimmed}");
             }
 
             var directive = trimmed[..firstSpace];
@@ -1100,12 +1100,12 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             if (!string.Equals(directive, "pinned", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(directive, "unpinned", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"Invalid pin control directive: {directive}");
+                throw new InvalidDataException($"Invalid pin root directive: {directive}");
             }
 
             if (!normalizedPath.StartsWith(@"\ledger\", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"Pin control entries must target /ledger/...: {pathText}");
+                throw new InvalidDataException($"Pin root entries must target /ledger/...: {pathText}");
             }
 
             result[normalizedPath] = string.Equals(directive, "pinned", StringComparison.OrdinalIgnoreCase);
@@ -1259,148 +1259,148 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         return node.ToJsonString().Trim('"');
     }
 
-    private InMemoryFileSystem BuildPinControlView(string normalizedControlPath)
+    private InMemoryFileSystem BuildPinRootView(string normalizedRootPath)
     {
         var view = new InMemoryFileSystem($"{_name}-pin-view");
-        view.SeedDirectory(@"\control");
-        view.SeedDirectory(@"\control\pin");
-        view.SeedDirectory(@"\control\pin\ledger");
+        view.SeedDirectory(@"\root");
+        view.SeedDirectory(@"\root\pin");
+        view.SeedDirectory(@"\root\pin\ledger");
 
-        if (string.Equals(normalizedControlPath, @"\control", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedRootPath, @"\root", StringComparison.OrdinalIgnoreCase))
         {
             return view;
         }
 
-        if (string.Equals(normalizedControlPath, @"\control\pin", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedRootPath, @"\root\pin", StringComparison.OrdinalIgnoreCase))
         {
             return view;
         }
 
-        if (string.Equals(normalizedControlPath, @"\control\pin\ledger", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedRootPath, @"\root\pin\ledger", StringComparison.OrdinalIgnoreCase))
         {
-            PopulatePinControlDirectoryChildren(view, normalizedControlPath, @"\ledger");
+            PopulatePinRootDirectoryChildren(view, normalizedRootPath, @"\ledger");
             return view;
         }
 
-        var info = ParsePath(normalizedControlPath);
-        if (info.Kind != ProjectedPathKind.ControlPinMirror || info.MirroredProjectedPath == null || info.MirroredKind == null)
+        var info = ParsePath(normalizedRootPath);
+        if (info.Kind != ProjectedPathKind.RootPinMirror || info.MirroredProjectedPath == null || info.MirroredKind == null)
         {
-            throw new FileNotFoundException(normalizedControlPath);
+            throw new FileNotFoundException(normalizedRootPath);
         }
 
         if (IsMirroredDirectory(info))
         {
-            EnsureSyntheticControlAncestors(view, normalizedControlPath);
-            view.SeedDirectory(normalizedControlPath);
-            PopulatePinControlDirectoryChildren(view, normalizedControlPath, info.MirroredProjectedPath);
+            EnsureSyntheticRootAncestors(view, normalizedRootPath);
+            view.SeedDirectory(normalizedRootPath);
+            PopulatePinRootDirectoryChildren(view, normalizedRootPath, info.MirroredProjectedPath);
             var isPinnedDirectory = info.JournalPath != null && IsPinnedJournalPath(info.JournalPath);
-            if (!isPinnedDirectory && view.ListEntriesInDirectory(normalizedControlPath).Count == 0)
+            if (!isPinnedDirectory && view.ListEntriesInDirectory(normalizedRootPath).Count == 0)
             {
-                throw new FileNotFoundException(normalizedControlPath);
+                throw new FileNotFoundException(normalizedRootPath);
             }
         }
         else
         {
-            EnsureSyntheticControlAncestors(view, normalizedControlPath);
-            if (!ShouldExposePinnedControlPath(info))
+            EnsureSyntheticRootAncestors(view, normalizedRootPath);
+            if (!ShouldExposePinnedRootPath(info))
             {
-                throw new FileNotFoundException(normalizedControlPath);
+                throw new FileNotFoundException(normalizedRootPath);
             }
-            view.SeedFile(normalizedControlPath, Array.Empty<byte>());
+            view.SeedFile(normalizedRootPath, Array.Empty<byte>());
         }
 
         return view;
     }
 
-    private FileSystemEntry PinControlFile(string normalizedControlPath, ProjectedPathInfo info)
+    private FileSystemEntry PinRootFile(string normalizedRootPath, ProjectedPathInfo info)
     {
         if (info.JournalPath == null || info.MirroredProjectedPath == null || info.MirroredKind == null)
         {
-            throw new NotSupportedException("Pin control file path is not pinnable.");
+            throw new NotSupportedException("Pin root file path is not pinnable.");
         }
 
         EnsurePathMaterialized(info.MirroredProjectedPath);
         var entry = _cache.GetEntry(info.MirroredProjectedPath);
         if (entry.IsDirectory)
         {
-            throw new IOException($"Pinned control file target is a directory: {normalizedControlPath}");
+            throw new IOException($"Pinned root file target is a directory: {normalizedRootPath}");
         }
 
         if (!_gateway.PinAsync(new GatewayPinRequest(info.JournalPath), CancellationToken.None).GetAwaiter().GetResult())
         {
-            throw new IOException($"Gateway pin failed for {normalizedControlPath}");
+            throw new IOException($"Gateway pin failed for {normalizedRootPath}");
         }
 
-        return BuildPinControlView(normalizedControlPath).GetEntry(normalizedControlPath);
+        return BuildPinRootView(normalizedRootPath).GetEntry(normalizedRootPath);
     }
 
-    private FileSystemEntry PinControlDirectory(string normalizedControlPath, ProjectedPathInfo info)
+    private FileSystemEntry PinRootDirectory(string normalizedRootPath, ProjectedPathInfo info)
     {
         if (info.JournalPath == null || info.MirroredProjectedPath == null || info.MirroredKind == null)
         {
-            throw new NotSupportedException("Pin control directory path is not pinnable.");
+            throw new NotSupportedException("Pin root directory path is not pinnable.");
         }
 
         EnsurePathMaterialized(info.MirroredProjectedPath);
         var entry = _cache.GetEntry(info.MirroredProjectedPath);
         if (!entry.IsDirectory)
         {
-            throw new IOException($"Pinned control directory target is not a directory: {normalizedControlPath}");
+            throw new IOException($"Pinned root directory target is not a directory: {normalizedRootPath}");
         }
 
         if (!_gateway.PinAsync(new GatewayPinRequest(info.JournalPath), CancellationToken.None).GetAwaiter().GetResult())
         {
-            throw new IOException($"Gateway pin failed for {normalizedControlPath}");
+            throw new IOException($"Gateway pin failed for {normalizedRootPath}");
         }
 
-        return BuildPinControlView(normalizedControlPath).GetEntry(normalizedControlPath);
+        return BuildPinRootView(normalizedRootPath).GetEntry(normalizedRootPath);
     }
 
-    private void UnpinControlPath(string normalizedControlPath, ProjectedPathInfo info)
+    private void UnpinRootPath(string normalizedRootPath, ProjectedPathInfo info)
     {
         if (info.JournalPath == null || info.MirroredProjectedPath == null || info.MirroredKind == null)
         {
-            throw new NotSupportedException("Pin control path is not pinnable.");
+            throw new NotSupportedException("Pin root path is not pinnable.");
         }
 
         EnsurePathMaterialized(info.MirroredProjectedPath);
         if (!_gateway.UnpinAsync(new GatewayPinRequest(info.JournalPath), CancellationToken.None).GetAwaiter().GetResult())
         {
-            throw new IOException($"Gateway unpin failed for {normalizedControlPath}");
+            throw new IOException($"Gateway unpin failed for {normalizedRootPath}");
         }
     }
 
-    private void PopulatePinControlDirectoryChildren(InMemoryFileSystem view, string controlDirectoryPath, string mirroredDirectoryPath)
+    private void PopulatePinRootDirectoryChildren(InMemoryFileSystem view, string rootDirectoryPath, string mirroredDirectoryPath)
     {
         foreach (var child in GetMirroredChildren(mirroredDirectoryPath))
         {
             var childMirroredPath = CombinePath(mirroredDirectoryPath, child.Name);
-            var childControlPath = CombinePath(controlDirectoryPath, child.Name);
-            var childInfo = ParsePath(childControlPath);
-            if (childInfo.Kind != ProjectedPathKind.ControlPinMirror || !ShouldExposePinnedControlPath(childInfo))
+            var childRootPath = CombinePath(rootDirectoryPath, child.Name);
+            var childInfo = ParsePath(childRootPath);
+            if (childInfo.Kind != ProjectedPathKind.RootPinMirror || !ShouldExposePinnedRootPath(childInfo))
             {
                 continue;
             }
 
             if (IsMirroredDirectory(childInfo))
             {
-                view.SeedDirectory(childControlPath);
+                view.SeedDirectory(childRootPath);
             }
             else
             {
-                view.SeedFile(childControlPath, Array.Empty<byte>());
+                view.SeedFile(childRootPath, Array.Empty<byte>());
             }
         }
     }
 
-    private bool ShouldExposePinnedControlPath(ProjectedPathInfo info)
+    private bool ShouldExposePinnedRootPath(ProjectedPathInfo info)
     {
-        if (info.Kind != ProjectedPathKind.ControlPinMirror || info.MirroredProjectedPath == null || info.MirroredKind == null)
+        if (info.Kind != ProjectedPathKind.RootPinMirror || info.MirroredProjectedPath == null || info.MirroredKind == null)
         {
             return false;
         }
 
-        if (IsControlScaffoldingPath(info))
+        if (IsRootScaffoldingPath(info))
         {
             return true;
         }
@@ -1413,7 +1413,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         return IsMirroredDirectory(info) && HasPinnedMirroredDescendants(info.MirroredProjectedPath);
     }
 
-    private static bool IsControlScaffoldingPath(ProjectedPathInfo info)
+    private static bool IsRootScaffoldingPath(ProjectedPathInfo info)
     {
         if (info.MirroredProjectedPath == null || info.MirroredKind == null)
         {
@@ -1437,14 +1437,14 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         foreach (var child in GetMirroredChildren(mirroredDirectoryPath))
         {
             var childMirroredPath = CombinePath(mirroredDirectoryPath, child.Name);
-            var controlChildPath = CombinePath(@"\control\pin", childMirroredPath.TrimStart('\\'));
-            var childInfo = ParsePath(controlChildPath);
-            if (childInfo.Kind != ProjectedPathKind.ControlPinMirror)
+            var rootChildPath = CombinePath(@"\root\pin", childMirroredPath.TrimStart('\\'));
+            var childInfo = ParsePath(rootChildPath);
+            if (childInfo.Kind != ProjectedPathKind.RootPinMirror)
             {
                 continue;
             }
 
-            if (ShouldExposePinnedControlPath(childInfo))
+            if (ShouldExposePinnedRootPath(childInfo))
             {
                 return true;
             }
@@ -1504,9 +1504,9 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         return _cache.GetEntry(info.MirroredProjectedPath).IsDirectory;
     }
 
-    private static void EnsureSyntheticControlAncestors(InMemoryFileSystem view, string controlPath)
+    private static void EnsureSyntheticRootAncestors(InMemoryFileSystem view, string rootPath)
     {
-        var normalized = NormalizePath(controlPath);
+        var normalized = NormalizePath(rootPath);
         var current = "\\";
         var segments = normalized.Trim('\\').Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var segment in segments.Take(Math.Max(0, segments.Length - 1)))
@@ -1947,11 +1947,11 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 journal);
         }
 
-        if (string.Equals(segments[0], "control", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(segments[0], "root", StringComparison.OrdinalIgnoreCase))
         {
             if (segments.Length == 1)
             {
-                return new ProjectedPathInfo(ProjectedPathKind.ControlSyntheticRoot, null);
+                return new ProjectedPathInfo(ProjectedPathKind.RootSyntheticRoot, null);
             }
 
             if (!string.Equals(segments[1], "pin", StringComparison.OrdinalIgnoreCase))
@@ -1960,7 +1960,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             }
 
             return segments.Length == 2
-                ? new ProjectedPathInfo(ProjectedPathKind.ControlPinFile, null)
+                ? new ProjectedPathInfo(ProjectedPathKind.RootPinFile, null)
                 : new ProjectedPathInfo(ProjectedPathKind.Invalid, null);
         }
 
@@ -2227,11 +2227,11 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         Root,
         StageSyntheticRoot,
         StageContent,
-        ControlSyntheticRoot,
-        ControlPinFile,
-        ControlPinRoot,
-        ControlPinLedgerRoot,
-        ControlPinMirror,
+        RootSyntheticRoot,
+        RootPinFile,
+        RootPinRoot,
+        RootPinLedgerRoot,
+        RootPinMirror,
         LedgerSyntheticRoot,
         LedgerNodeContainer,
         LedgerPreviousContainer,

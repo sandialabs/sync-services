@@ -77,7 +77,7 @@ resolve_directory() {
 validate_local_lisp_directory() {
     directory="$1"
     missing=""
-    for required in control.scm standard.scm log-chain.scm linear-chain.scm tree.scm ledger.scm interface.scm; do
+    for required in root.scm standard.scm log-chain.scm linear-chain.scm tree.scm ledger.scm interface.scm; do
         if [ ! -f "$directory/$required" ]; then
             missing="$missing $required"
         fi
@@ -369,15 +369,15 @@ case "$gateway_size" in
         ;;
 esac
 
-control_unauthorized_status="$(gateway_status POST "/api/v1/control/step" -H "Content-Type: application/json" -d '[]')"
-if [ "$control_unauthorized_status" != "401" ]; then
-    echo "FAIL: expected gateway control route to require auth (401), got $control_unauthorized_status"
+root_unauthorized_status="$(gateway_status POST "/api/v1/root/step" -H "Content-Type: application/json" -d '[]')"
+if [ "$root_unauthorized_status" != "401" ]; then
+    echo "FAIL: expected gateway root route to require auth (401), got $root_unauthorized_status"
     exit 1
 fi
 
-control_authorized_status="$(gateway_status POST "/api/v1/control/step" -H "Authorization: Bearer $SECRET" -H "Content-Type: application/json" -d '[]')"
-if [ "$control_authorized_status" != "200" ]; then
-    echo "FAIL: expected authenticated gateway control route to succeed (200), got $control_authorized_status"
+root_authorized_status="$(gateway_status POST "/api/v1/root/step" -H "Authorization: Bearer $SECRET" -H "Content-Type: application/json" -d '[]')"
+if [ "$root_authorized_status" != "200" ]; then
+    echo "FAIL: expected authenticated gateway root route to succeed (200), got $root_authorized_status"
     exit 1
 fi
 
@@ -402,7 +402,7 @@ if [ "$elapsed" -ge "$TIMEOUT_SECONDS" ]; then
 fi
 
 fs_root_listing="$(cat /tmp/sync-services-fs-root-ls.log)"
-for required in stage ledger control; do
+for required in stage ledger root; do
     if ! printf "%s" "$fs_root_listing" | grep -q " $required "; then
         echo "FAIL: expected SMB root listing to contain '$required'"
         printf "%s\n" "$fs_root_listing"
