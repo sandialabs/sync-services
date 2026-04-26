@@ -12,8 +12,6 @@ interface ExplorerTreeProps {
   refreshKey: number;
   onExpandedNodesChange: (expanded: Set<string>) => void;
   onSelect: (selection: ExplorerSelection) => void;
-  onRename?: (node: TreeNode) => void;
-  onDelete?: (node: TreeNode) => void;
 }
 
 const buildStateChildPath = (parentPath: JournalPath, name: string): JournalPath => {
@@ -60,8 +58,6 @@ const ExplorerTree: React.FC<ExplorerTreeProps> = ({
   refreshKey,
   onExpandedNodesChange,
   onSelect,
-  onRename,
-  onDelete,
 }) => {
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
 
@@ -159,7 +155,6 @@ const ExplorerTree: React.FC<ExplorerTreeProps> = ({
   const renderNode = (node: TreeNode, depth: number): JSX.Element => {
     const isExpanded = expandedNodes.has(node.id);
     const isSelected = selectedKey === JSON.stringify(node.path);
-    const showActions = mode === 'stage';
     const selectionType: ExplorerSelection['type'] = node.type === 'file' ? 'file' : 'directory';
     const kindIcon = node.type === 'directory' ? '▣' : '▤';
 
@@ -182,24 +177,6 @@ const ExplorerTree: React.FC<ExplorerTreeProps> = ({
             <span className="tree-node-kind" aria-hidden="true">{kindIcon}</span>
             {node.label}
           </button>
-          {showActions && (
-            <div className="tree-node-actions">
-              <button
-                className="tree-node-action"
-                title="Rename"
-                onClick={() => onRename?.(node)}
-              >
-                ✎
-              </button>
-              <button
-                className="tree-node-action"
-                title="Delete"
-                onClick={() => onDelete?.(node)}
-              >
-                ✕
-              </button>
-            </div>
-          )}
         </div>
         {isExpanded && node.children && (
           <div className="tree-node-children">

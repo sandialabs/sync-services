@@ -341,8 +341,29 @@
 }
 
 .content-path {
+  display: flex;
+  align-items: center;
   font-size: 18px;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.button-inline-icon {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 0.75em;
+  font-weight: normal;
+  font-variant-emoji: text;
+  color: var(--text-secondary);
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.button-inline-icon:hover {
+  background-color: var(--hover-bg);
   color: var(--text-primary);
 }
 

@@ -13,6 +13,8 @@ interface ExplorerContentProps {
   onStageCreateFile: (path: JournalPath) => Promise<void>;
   onStageCreateDirectory: (path: JournalPath) => Promise<void>;
   onStageUploadFile: (path: JournalPath, file: File) => Promise<void>;
+  onStageRename: (path: JournalPath, label: string) => Promise<void>;
+  onStageDelete: (path: JournalPath, label: string) => Promise<void>;
   onSelectPath: (selection: ExplorerSelection) => void;
 }
 
@@ -26,6 +28,8 @@ const ExplorerContent: React.FC<ExplorerContentProps> = ({
   onStageCreateFile,
   onStageCreateDirectory,
   onStageUploadFile,
+  onStageRename,
+  onStageDelete,
   onSelectPath,
 }) => {
   const [response, setResponse] = useState<JournalResponse | null>(null);
@@ -185,7 +189,6 @@ const ExplorerContent: React.FC<ExplorerContentProps> = ({
             }
           : prev,
       );
-      setActionNotice(expectedPinned ? 'Pinned' : 'Unpinned');
 
       try {
         const nextResponse = await journalService.get(selection.path);
@@ -221,7 +224,16 @@ const ExplorerContent: React.FC<ExplorerContentProps> = ({
     <div className="content-viewer">
       <div className="content-header">
         <div className="content-path-container">
-          <div className="content-path">{title}</div>
+          <div className="content-path">
+            {title}
+            {mode === 'stage' && (
+              <button
+                className="button-inline-icon"
+                title="Rename"
+                onClick={() => void onStageRename(selection.path, title)}
+              >✎</button>
+            )}
+          </div>
           {actionNotice && <div className="content-meta-note">{actionNotice}</div>}
         </div>
         <div className="content-actions">
@@ -242,6 +254,7 @@ const ExplorerContent: React.FC<ExplorerContentProps> = ({
                   }
                 }}
               />
+              <button className="button button-secondary" onClick={() => void onStageDelete(selection.path, title)}>Delete</button>
             </>
           )}
           {mode === 'stage' && selection.type === 'file' && (
@@ -256,6 +269,7 @@ const ExplorerContent: React.FC<ExplorerContentProps> = ({
                 {isEditing ? 'Save' : 'Edit'}
               </button>
               <button className="button button-secondary" onClick={handleDownload}>Download</button>
+              <button className="button button-secondary" onClick={() => void onStageDelete(selection.path, title)}>Delete</button>
             </>
           )}
           {mode === 'ledger' && selection.type === 'file' && (

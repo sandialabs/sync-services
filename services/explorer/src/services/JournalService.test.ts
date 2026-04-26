@@ -155,17 +155,13 @@ describe('JournalService API', () => {
 
   describe('get', () => {
     it('should call get endpoint for staged paths', async () => {
-      const mockResponse = {
-        content: { '*type/string*': 'test content' },
-        'pinned?': null,
-        proof: {},
-      };
-      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse));
+      const rawValue = { '*type/string*': 'test content' };
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(rawValue));
 
       const path = [['*state*', 'test']];
       const result = await service.get(path);
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual({ content: rawValue });
       expect(mockFetch).toHaveBeenCalledWith(
         'http://test-endpoint.com/api/v1/general/get',
         expect.objectContaining({

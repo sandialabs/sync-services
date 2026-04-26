@@ -320,19 +320,19 @@ export class JournalService {
   ): Promise<JournalResponse> {
     const { pinned = true, proof = true } = options;
     const indexedPath = JournalService.isIndexedPath(path);
-    return this.request<JournalResponse>({
+    if (indexedPath) {
+      return this.request<JournalResponse>({
+        method: 'POST',
+        path: '/general/resolve',
+        args: { path, 'pinned?': pinned, 'proof?': proof },
+      });
+    }
+    const raw = await this.request<unknown>({
       method: 'POST',
-      path: indexedPath ? '/general/resolve' : '/general/get',
-      args: indexedPath
-        ? {
-            path,
-            'pinned?': pinned,
-            'proof?': proof,
-          }
-        : {
-            path,
-          },
+      path: '/general/get',
+      args: { path },
     });
+    return { content: raw } as JournalResponse;
   }
 
   /**

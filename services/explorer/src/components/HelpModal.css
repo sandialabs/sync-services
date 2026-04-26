@@ -12,9 +12,9 @@
 }
 
 .modal-content {
-  background-color: white;
+  background-color: var(--bg-elevated);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   max-width: 600px;
   max-height: 80vh;
   width: 90%;
@@ -27,12 +27,12 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h2 {
   margin: 0;
-  color: var(--dark-blue);
+  color: var(--text-primary);
 }
 
 .modal-close {
@@ -40,7 +40,7 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--blue-gray);
+  color: var(--text-secondary);
   width: 32px;
   height: 32px;
   display: flex;
@@ -51,8 +51,8 @@
 }
 
 .modal-close:hover {
-  background-color: #f0f0f0;
-  color: var(--dark-blue);
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -72,7 +72,7 @@
 
 .modal-body p {
   line-height: 1.6;
-  color: var(--dark-blue);
+  color: var(--text-primary);
   margin-bottom: 12px;
 }
 
@@ -80,7 +80,7 @@
 .modal-body ol {
   margin-left: 20px;
   line-height: 1.8;
-  color: var(--dark-blue);
+  color: var(--text-primary);
 }
 
 .modal-body li {

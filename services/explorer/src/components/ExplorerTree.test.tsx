@@ -30,8 +30,6 @@ describe('ExplorerTree', () => {
         refreshKey={0}
         onExpandedNodesChange={jest.fn()}
         onSelect={jest.fn()}
-        onRename={jest.fn()}
-        onDelete={jest.fn()}
       />,
     );
 
@@ -57,8 +55,6 @@ describe('ExplorerTree', () => {
         refreshKey={0}
         onExpandedNodesChange={jest.fn()}
         onSelect={jest.fn()}
-        onRename={jest.fn()}
-        onDelete={jest.fn()}
       />,
     );
 
@@ -81,8 +77,6 @@ describe('ExplorerTree', () => {
         refreshKey={0}
         onExpandedNodesChange={jest.fn()}
         onSelect={onSelect}
-        onRename={jest.fn()}
-        onDelete={jest.fn()}
       />,
     );
 

@@ -5,7 +5,7 @@ import ExplorerTree from './components/ExplorerTree';
 import ExplorerContent from './components/ExplorerContent';
 import LedgerRouteBar from './components/LedgerRouteBar';
 import { JournalService } from './services/JournalService';
-import { AppState, ExplorerMode, ExplorerSelection, JournalPath, LedgerHop, TreeNode } from './types';
+import { AppState, ExplorerMode, ExplorerSelection, JournalPath, LedgerHop } from './types';
 import {
   LEDGER_LATEST,
   buildLedgerBridgesPath,
@@ -160,17 +160,20 @@ const App: React.FC = () => {
     try {
       const size = await journalService.getSize();
       const latestIndex = Math.max(0, size - 1);
+      const updatedHops = ledgerHops.map((hop, index) =>
+        index === 0 ? { ...hop, snapshot: String(latestIndex) } : hop,
+      );
       setAppState((prev) => ({
         ...prev,
         rootIndex: latestIndex,
         isLoading: false,
         error: null,
       }));
-      setLedgerHops((prev) =>
-        prev.map((hop, index) =>
-          index === 0 ? { ...hop, snapshot: String(latestIndex) } : hop,
-        ),
-      );
+      setLedgerHops(updatedHops);
+      setLedgerSelection({
+        path: buildLedgerStateRootPath(updatedHops, latestIndex),
+        type: 'directory',
+      });
       setLedgerRefreshKey((prev) => prev + 1);
     } catch (error) {
       setAppState((prev) => ({
@@ -223,35 +226,38 @@ const App: React.FC = () => {
 
   const handleModeChange = (nextMode: ExplorerMode) => {
     setMode(nextMode);
-    if (nextMode === 'ledger') {
+    if (nextMode === 'stage') {
+      setStageSelection({ path: STAGE_ROOT_PATH, type: 'directory' });
+    } else {
       setLedgerView('content');
+      void synchronizeLedger();
     }
     setAppState((prev) => ({ ...prev, error: null }));
   };
 
-  const handleRenameStageNode = async (node: TreeNode) => {
+  const handleRenameStageNode = async (path: JournalPath, label: string) => {
     if (!journalService) {
       return;
     }
-    const nextName = window.prompt('Rename to:', node.label);
-    if (!nextName || nextName.trim() === '' || nextName === node.label) {
+    const nextName = window.prompt('Rename to:', label);
+    if (!nextName || nextName.trim() === '' || nextName === label) {
       return;
     }
 
     try {
-      const renamedPath = buildStageSiblingPath(node.path, nextName.trim());
-      await journalService.renameStagePath(node.path, nextName.trim());
+      const renamedPath = buildStageSiblingPath(path, nextName.trim());
+      await journalService.renameStagePath(path, nextName.trim());
       setStageSelection((prev) => {
-        if (!prev || !isPathWithin(prev.path, node.path)) {
+        if (!prev || !isPathWithin(prev.path, path)) {
           return prev;
         }
         return {
           ...prev,
-          path: replaceStagePathPrefix(prev.path, node.path, renamedPath),
+          path: replaceStagePathPrefix(prev.path, path, renamedPath),
         };
       });
       setStageExpandedNodes((prev) => {
-        const sourceId = stagePathToTreeNodeId(node.path);
+        const sourceId = stagePathToTreeNodeId(path);
         const targetId = stagePathToTreeNodeId(renamedPath);
         const next = new Set<string>();
         prev.forEach((id) => {
@@ -273,22 +279,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteStageNode = async (node: TreeNode) => {
+  const handleDeleteStageNode = async (path: JournalPath, label: string) => {
     if (!journalService) {
       return;
     }
-    const confirmed = window.confirm(`Delete ${node.label}?`);
+    const confirmed = window.confirm(`Delete ${label}?`);
     if (!confirmed) {
       return;
     }
 
     try {
-      await journalService.deleteStagePath(node.path);
+      await journalService.deleteStagePath(path);
       setStageSelection((prev) =>
-        prev && isPathWithin(prev.path, node.path) ? null : prev,
+        prev && isPathWithin(prev.path, path) ? null : prev,
       );
       setStageExpandedNodes((prev) => {
-        const sourceId = stagePathToTreeNodeId(node.path);
+        const sourceId = stagePathToTreeNodeId(path);
         const next = new Set<string>();
         prev.forEach((id) => {
           if (id !== sourceId && !id.startsWith(`${sourceId}/`)) {
@@ -504,17 +510,7 @@ const App: React.FC = () => {
     setLedgerHops((prev) =>
       prev.map((hop, index) => {
         if (index === 0) {
-          const trimmed = hop.snapshot.trim().toLowerCase();
-          if (trimmed === '' || trimmed === LEDGER_LATEST) {
-            return { ...hop, snapshot: appState.rootIndex >= 0 ? String(appState.rootIndex) : '0' };
-          }
-
-          const parsed = Number.parseInt(trimmed, 10);
-          if (Number.isNaN(parsed) || parsed < 0) {
-            return { ...hop, snapshot: appState.rootIndex >= 0 ? String(appState.rootIndex) : '0' };
-          }
-
-          return { ...hop, snapshot: String(parsed) };
+          return { ...hop, snapshot: appState.rootIndex >= 0 ? String(appState.rootIndex) : '0' };
         }
 
         return { ...hop, snapshot: normalizeSnapshotInput(hop.snapshot) };
@@ -596,8 +592,6 @@ const App: React.FC = () => {
                 setLedgerSelection(selection);
               }
             }}
-            onRename={mode === 'stage' ? handleRenameStageNode : undefined}
-            onDelete={mode === 'stage' ? handleDeleteStageNode : undefined}
           />
         </div>
 
@@ -614,6 +608,8 @@ const App: React.FC = () => {
             onStageCreateFile={handleStageCreateFile}
             onStageCreateDirectory={handleStageCreateDirectory}
             onStageUploadFile={handleStageUploadFile}
+            onStageRename={handleRenameStageNode}
+            onStageDelete={handleDeleteStageNode}
             onSelectPath={(selection) => {
               if (mode === 'stage') {
                 setStageSelection(selection);

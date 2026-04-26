@@ -52,6 +52,8 @@ describe('ExplorerContent', () => {
         onStageCreateFile={jest.fn().mockResolvedValue(undefined)}
         onStageCreateDirectory={jest.fn().mockResolvedValue(undefined)}
         onStageUploadFile={jest.fn().mockResolvedValue(undefined)}
+        onStageRename={jest.fn().mockResolvedValue(undefined)}
+        onStageDelete={jest.fn().mockResolvedValue(undefined)}
         onSelectPath={jest.fn()}
       />,
     );
@@ -83,6 +85,8 @@ describe('ExplorerContent', () => {
         onStageCreateFile={jest.fn().mockResolvedValue(undefined)}
         onStageCreateDirectory={jest.fn().mockResolvedValue(undefined)}
         onStageUploadFile={jest.fn().mockResolvedValue(undefined)}
+        onStageRename={jest.fn().mockResolvedValue(undefined)}
+        onStageDelete={jest.fn().mockResolvedValue(undefined)}
         onSelectPath={jest.fn()}
       />,
     );
@@ -119,6 +123,8 @@ describe('ExplorerContent', () => {
         onStageCreateFile={jest.fn().mockResolvedValue(undefined)}
         onStageCreateDirectory={jest.fn().mockResolvedValue(undefined)}
         onStageUploadFile={jest.fn().mockResolvedValue(undefined)}
+        onStageRename={jest.fn().mockResolvedValue(undefined)}
+        onStageDelete={jest.fn().mockResolvedValue(undefined)}
         onSelectPath={onSelectPath}
       />,
     );
@@ -154,6 +160,8 @@ describe('ExplorerContent', () => {
         onStageCreateFile={jest.fn().mockResolvedValue(undefined)}
         onStageCreateDirectory={jest.fn().mockResolvedValue(undefined)}
         onStageUploadFile={jest.fn().mockResolvedValue(undefined)}
+        onStageRename={jest.fn().mockResolvedValue(undefined)}
+        onStageDelete={jest.fn().mockResolvedValue(undefined)}
         onSelectPath={jest.fn()}
       />,
     );
