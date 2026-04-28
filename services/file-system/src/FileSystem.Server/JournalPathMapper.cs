@@ -41,13 +41,6 @@ public static class JournalPathMapper
                 throw new InvalidDataException("Ledger fixture path is incomplete.");
             }
 
-            if (IsBridgeBlock(parts[cursor]))
-            {
-                segments.AddRange(CompileLedgerNodePath(parts, cursor));
-                return JoinProjectedPath(segments);
-            }
-
-            segments.Add("previous");
             segments.Add(firstIndex.ToString());
             segments.AddRange(CompileLedgerNodePath(parts, cursor));
             return JoinProjectedPath(segments);
@@ -74,29 +67,7 @@ public static class JournalPathMapper
 
     public static bool TryDecompileProjectedTargetPath(string path, out IReadOnlyList<object> result)
     {
-        if (TryDecompileProjectedPath(path, out result))
-        {
-            return true;
-        }
-
-        var normalized = NormalizeProjectedPath(path);
-        var segments = normalized.Trim('\\')
-            .Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        if (segments.Length >= 2 &&
-            string.Equals(segments[0], "ledger", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(segments[1], "state", StringComparison.OrdinalIgnoreCase))
-        {
-            result = new object[]
-            {
-                -1,
-                new object[] { "*state*" }.Concat(segments.Skip(2).Cast<object>()).ToArray()
-            };
-            return true;
-        }
-
-        result = Array.Empty<object>();
-        return false;
+        return TryDecompileProjectedPath(path, out result);
     }
 
     public static bool TryDecompileProjectedPath(string path, out IReadOnlyList<object> result)
@@ -132,6 +103,12 @@ public static class JournalPathMapper
             return false;
         }
 
+        if (segments.Length >= 2 && string.Equals(segments[1], "bridge", StringComparison.OrdinalIgnoreCase))
+        {
+            result = Array.Empty<object>();
+            return false;
+        }
+
         if (!TryDecompileLedgerNodePath(segments, 1, out var parts))
         {
             result = Array.Empty<object>();
@@ -144,15 +121,13 @@ public static class JournalPathMapper
             return false;
         }
 
-        if (parts[0] is int)
+        if (parts[0] is not int)
         {
-            result = parts;
-            return true;
+            result = Array.Empty<object>();
+            return false;
         }
 
-        var prefixed = new List<object> { -1 };
-        prefixed.AddRange(parts);
-        result = prefixed;
+        result = parts;
         return true;
     }
 
@@ -176,7 +151,6 @@ public static class JournalPathMapper
             var part = parts[cursor];
             if (part.ValueKind == JsonValueKind.Number)
             {
-                segments.Add("previous");
                 segments.Add(part.GetInt32().ToString());
                 cursor++;
                 continue;
@@ -226,15 +200,10 @@ public static class JournalPathMapper
                 return true;
             }
 
-            if (string.Equals(segment, "previous", StringComparison.OrdinalIgnoreCase))
+            if (int.TryParse(segment, out var index))
             {
-                if (cursor + 1 >= segments.Length || !int.TryParse(segments[cursor + 1], out var index))
-                {
-                    return false;
-                }
-
                 parts.Add(index);
-                cursor += 2;
+                cursor++;
                 continue;
             }
 

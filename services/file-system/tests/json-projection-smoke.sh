@@ -76,8 +76,8 @@ assert_contains "$STAGE_LISTING" "README.txt" "stage listing"
 assert_contains "$STAGE_LISTING" "docs" "stage listing"
 assert_contains "$STAGE_LISTING" "notes" "stage listing"
 
-echo "Listing ledger/state/..."
-run_command "cd ledger/state; ls" > "$LEDGER_STATE_LISTING"
+echo "Listing ledger/-1/state/..."
+run_command "cd ledger/-1/state; ls" > "$LEDGER_STATE_LISTING"
 assert_contains "$LEDGER_STATE_LISTING" "hello.txt" "ledger state listing"
 assert_contains "$LEDGER_STATE_LISTING" "README.txt" "ledger state listing"
 assert_contains "$LEDGER_STATE_LISTING" "docs" "ledger state listing"
@@ -104,28 +104,28 @@ assert_contains "$HELLO_DOWNLOAD" "Synchronic file-system JSON fixture." "hello.
 assert_contains "$GUIDE_DOWNLOAD" "This file lives under docs/." "docs/guide.txt contents"
 assert_contains "$TODO_DOWNLOAD" "validate projection metadata" "notes/todo.txt contents"
 
-echo "Checking ledger/previous/ and ledger/peer/ fixture entries..."
-run_command "get ledger/previous/3/state/archive.txt $WORK_DIR/archive.txt"
-run_command "get ledger/peer/alice/state/current-remote.txt $WORK_DIR/current-remote.txt"
-run_command "get ledger/peer/alice/previous/2/state/remote-note.txt $WORK_DIR/remote-note.txt"
-assert_contains "$WORK_DIR/archive.txt" "mock previous snapshot entry" "previous fixture contents"
-assert_contains "$WORK_DIR/current-remote.txt" "mock current related-peer entry" "peer fixture contents"
-assert_contains "$WORK_DIR/remote-note.txt" "mock historical related-peer entry" "historical peer fixture contents"
+echo "Checking ledger/<index>/ and ledger/bridge/ fixture entries..."
+run_command "get ledger/3/state/archive.txt $WORK_DIR/archive.txt"
+run_command "get ledger/-1/bridge/alice/state/current-remote.txt $WORK_DIR/current-remote.txt"
+run_command "get ledger/-1/bridge/alice/2/state/remote-note.txt $WORK_DIR/remote-note.txt"
+assert_contains "$WORK_DIR/archive.txt" "mock previous snapshot entry" "snapshot fixture contents"
+assert_contains "$WORK_DIR/current-remote.txt" "mock current related-peer entry" "bridge fixture contents"
+assert_contains "$WORK_DIR/remote-note.txt" "mock historical related-peer entry" "historical bridge fixture contents"
 
 echo "Checking read-only namespace enforcement..."
-LEDGER_PREVIOUS_PUT_ERROR="$WORK_DIR/ledger-previous-put.err"
-LEDGER_PEER_PUT_ERROR="$WORK_DIR/ledger-peer-put.err"
+LEDGER_INDEX_PUT_ERROR="$WORK_DIR/ledger-index-put.err"
+LEDGER_BRIDGE_PUT_ERROR="$WORK_DIR/ledger-bridge-put.err"
 
-if run_command "put $HELLO_DOWNLOAD ledger/previous/3/state/should-fail.txt" > "$LEDGER_PREVIOUS_PUT_ERROR" 2>&1; then
-    echo "FAIL: write to ledger/previous/ unexpectedly succeeded" >&2
+if run_command "put $HELLO_DOWNLOAD ledger/3/state/should-fail.txt" > "$LEDGER_INDEX_PUT_ERROR" 2>&1; then
+    echo "FAIL: write to ledger/<index>/ unexpectedly succeeded" >&2
     exit 1
 fi
-assert_contains "$LEDGER_PREVIOUS_PUT_ERROR" "NT_STATUS_ACCESS_DENIED" "ledger previous write error"
+assert_contains "$LEDGER_INDEX_PUT_ERROR" "NT_STATUS_ACCESS_DENIED" "ledger index write error"
 
-if run_command "put $HELLO_DOWNLOAD ledger/peer/alice/state/should-fail.txt" > "$LEDGER_PEER_PUT_ERROR" 2>&1; then
-    echo "FAIL: write to ledger/peer/ unexpectedly succeeded" >&2
+if run_command "put $HELLO_DOWNLOAD ledger/-1/bridge/alice/state/should-fail.txt" > "$LEDGER_BRIDGE_PUT_ERROR" 2>&1; then
+    echo "FAIL: write to ledger/-1/bridge/ unexpectedly succeeded" >&2
     exit 1
 fi
-assert_contains "$LEDGER_PEER_PUT_ERROR" "NT_STATUS_ACCESS_DENIED" "ledger peer write error"
+assert_contains "$LEDGER_BRIDGE_PUT_ERROR" "NT_STATUS_ACCESS_DENIED" "ledger bridge write error"
 
 echo "PASS: JSON projection smoke checks succeeded."

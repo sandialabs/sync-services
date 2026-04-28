@@ -106,8 +106,7 @@ public static class JsonFileSystemLoader
 
             foreach (var directory in orderedEntries.Where(entry => entry.IsDirectory))
             {
-                if (!ShouldPersistFixturePath(directory.SharePath.TrimStart('\\').Replace('\\', '/')) ||
-                    !JournalPathMapper.TryDecompileProjectedPath(directory.SharePath, out _))
+                if (!JournalPathMapper.TryDecompileProjectedPath(directory.SharePath, out _))
                 {
                     continue;
                 }
@@ -120,8 +119,7 @@ public static class JsonFileSystemLoader
 
             foreach (var file in orderedEntries.Where(entry => !entry.IsDirectory))
             {
-                if (!ShouldPersistFixturePath(file.SharePath.TrimStart('\\').Replace('\\', '/')) ||
-                    !JournalPathMapper.TryDecompileProjectedPath(file.SharePath, out _))
+                if (!JournalPathMapper.TryDecompileProjectedPath(file.SharePath, out _))
                 {
                     continue;
                 }
@@ -145,8 +143,7 @@ public static class JsonFileSystemLoader
 
         foreach (var directory in snapshot.Directories.OrderBy(x => x.Path, StringComparer.OrdinalIgnoreCase))
         {
-            if (!ShouldPersistFixturePath(directory.Path) ||
-                !JournalPathMapper.TryDecompileProjectedPath("\\" + directory.Path.TrimStart('\\'), out _))
+            if (!JournalPathMapper.TryDecompileProjectedPath("\\" + directory.Path.TrimStart('\\'), out _))
             {
                 continue;
             }
@@ -164,8 +161,7 @@ public static class JsonFileSystemLoader
 
         foreach (var file in snapshot.Files.OrderBy(x => x.Path, StringComparer.OrdinalIgnoreCase))
         {
-            if (!ShouldPersistFixturePath(file.Path) ||
-                !JournalPathMapper.TryDecompileProjectedPath("\\" + file.Path.TrimStart('\\'), out _))
+            if (!JournalPathMapper.TryDecompileProjectedPath("\\" + file.Path.TrimStart('\\'), out _))
             {
                 continue;
             }
@@ -385,11 +381,6 @@ public static class JsonFileSystemLoader
 
     private static void ApplyEntry(InMemoryFileSystem fileSystem, FixtureEntry entry)
     {
-        if (TryMirrorStageEntryToLedger(entry, out var mirrored))
-        {
-            ApplySingleEntry(fileSystem, mirrored);
-        }
-
         ApplySingleEntry(fileSystem, entry);
     }
 
@@ -437,20 +428,6 @@ public static class JsonFileSystemLoader
                 entry.Mode,
                 entry.Uid,
                 entry.Gid));
-    }
-
-    private static bool TryMirrorStageEntryToLedger(FixtureEntry entry, out FixtureEntry mirrored)
-    {
-        mirrored = entry;
-        if (!entry.SharePath.Equals("\\stage", StringComparison.OrdinalIgnoreCase) &&
-            !entry.SharePath.StartsWith("\\stage\\", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var ledgerPath = "\\ledger\\state" + entry.SharePath["\\stage".Length..];
-        mirrored = entry with { SharePath = ledgerPath };
-        return true;
     }
 
     private static FixtureEntry ParseEntry(JsonElement entryElement)
@@ -521,12 +498,6 @@ public static class JsonFileSystemLoader
         writer.WriteStartArray();
         WriteJournalPath(writer, sharePath);
         writer.WriteStartObject();
-    }
-
-    private static bool ShouldPersistFixturePath(string path)
-    {
-        return !path.Equals("ledger/state", StringComparison.OrdinalIgnoreCase) &&
-            !path.StartsWith("ledger/state/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void WriteJournalPath(Utf8JsonWriter writer, string sharePath)

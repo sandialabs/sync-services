@@ -63,13 +63,13 @@ const buildLedgerFragment = (
   ledgerHops: LedgerHop[],
   rootIndex: number,
 ): string => {
-  const segments = ['ledger', 'previous', getLedgerRootSnapshot(ledgerHops[0], rootIndex)];
+  const segments = ['ledger', getLedgerRootSnapshot(ledgerHops[0], rootIndex)];
 
   for (const hop of ledgerHops.slice(1)) {
     segments.push('bridge', hop.name);
     const trimmed = hop.snapshot.trim().toLowerCase();
     if (trimmed !== '' && trimmed !== 'latest') {
-      segments.push('previous', hop.snapshot);
+      segments.push(hop.snapshot);
     }
   }
 
@@ -123,9 +123,9 @@ const parseLedgerFragment = (segments: string[], isDirectory: boolean) => {
   let rootSnapshot = '0';
   const hops: LedgerHop[] = [];
 
-  if (segments[cursor] === 'previous' && cursor + 1 < segments.length) {
-    rootSnapshot = segments[cursor + 1];
-    cursor += 2;
+  if (cursor < segments.length && !Number.isNaN(Number(segments[cursor]))) {
+    rootSnapshot = segments[cursor];
+    cursor++;
   }
 
   hops.push({
@@ -159,9 +159,9 @@ const parseLedgerFragment = (segments: string[], isDirectory: boolean) => {
     const bridgeName = segments[cursor + 1];
     cursor += 2;
     let snapshot = 'latest';
-    if (segments[cursor] === 'previous' && cursor + 1 < segments.length) {
-      snapshot = segments[cursor + 1];
-      cursor += 2;
+    if (cursor < segments.length && !Number.isNaN(Number(segments[cursor]))) {
+      snapshot = segments[cursor];
+      cursor++;
     }
 
     hops.push({

@@ -58,17 +58,17 @@ public sealed class GrammarValidationWorker : BackgroundService
     {
         AssertCompiled("""[["*state*"]]""", @"\stage");
         AssertCompiled("""[["*state*","docs","guide.txt"]]""", @"\stage\docs\guide.txt");
-        AssertCompiled("""[3,["*state*","archive.txt"]]""", @"\ledger\previous\3\state\archive.txt");
-        AssertCompiled("""[-1,["*state*","latest.txt"]]""", @"\ledger\previous\-1\state\latest.txt");
+        AssertCompiled("""[3,["*state*","archive.txt"]]""", @"\ledger\3\state\archive.txt");
+        AssertCompiled("""[-1,["*state*","latest.txt"]]""", @"\ledger\-1\state\latest.txt");
         AssertCompiled(
-            """[9,["*peer*","alice","chain"],["*state*","current-remote.txt"]]""",
-            @"\ledger\peer\alice\state\current-remote.txt");
+            """[9,["*bridge*","alice","chain"],["*state*","current-remote.txt"]]""",
+            @"\ledger\9\bridge\alice\state\current-remote.txt");
         AssertCompiled(
-            """[9,["*peer*","alice","chain"],2,["*state*","remote-note.txt"]]""",
-            @"\ledger\peer\alice\previous\2\state\remote-note.txt");
+            """[9,["*bridge*","alice","chain"],2,["*state*","remote-note.txt"]]""",
+            @"\ledger\9\bridge\alice\2\state\remote-note.txt");
         AssertCompiled(
-            """[9,["*peer*","alice","chain"],-1,["*peer*","bob","chain"],4,["*state*","deep.txt"]]""",
-            @"\ledger\peer\alice\previous\-1\peer\bob\previous\4\state\deep.txt");
+            """[9,["*bridge*","alice","chain"],-1,["*bridge*","bob","chain"],4,["*state*","deep.txt"]]""",
+            @"\ledger\9\bridge\alice\-1\bridge\bob\4\state\deep.txt");
     }
 
     private void ValidatePathDecompilation()
@@ -77,47 +77,50 @@ public sealed class GrammarValidationWorker : BackgroundService
             @"\stage\docs\guide.txt",
             """[["*state*","docs","guide.txt"]]""");
         AssertDecompiled(
-            @"\ledger\previous\3\state\archive.txt",
+            @"\ledger\3\state\archive.txt",
             """[3,["*state*","archive.txt"]]""");
         AssertDecompiled(
-            @"\ledger\previous\-1\state\latest.txt",
+            @"\ledger\-1\state\latest.txt",
             """[-1,["*state*","latest.txt"]]""");
         AssertDecompiled(
-            @"\ledger\peer\alice\state\current-remote.txt",
-            """[-1,["*peer*","alice","chain"],["*state*","current-remote.txt"]]""");
+            @"\ledger\-1\bridge\alice\state\current-remote.txt",
+            """[-1,["*bridge*","alice","chain"],["*state*","current-remote.txt"]]""");
         AssertDecompiled(
-            @"\ledger\peer\alice\previous\2\state\remote-note.txt",
-            """[-1,["*peer*","alice","chain"],2,["*state*","remote-note.txt"]]""");
+            @"\ledger\-1\bridge\alice\2\state\remote-note.txt",
+            """[-1,["*bridge*","alice","chain"],2,["*state*","remote-note.txt"]]""");
         AssertDecompiled(
-            @"\ledger\peer\alice\previous\-1\peer\bob\previous\4\state\deep.txt",
-            """[-1,["*peer*","alice","chain"],-1,["*peer*","bob","chain"],4,["*state*","deep.txt"]]""");
+            @"\ledger\-1\bridge\alice\-1\bridge\bob\4\state\deep.txt",
+            """[-1,["*bridge*","alice","chain"],-1,["*bridge*","bob","chain"],4,["*state*","deep.txt"]]""");
 
         Assert(
             !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\state\hello.txt", out _),
             @"\ledger\state\... should remain derived-only and not persist to the fixture");
+        Assert(
+            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\bridge\alice\state\hello.txt", out _),
+            @"\ledger\bridge\... without an explicit index should not persist to the fixture");
         Assert(JournalPathMapper.IsWritableProjectedPath(@"\stage"), @"\stage should be writable");
         Assert(JournalPathMapper.IsWritableProjectedPath(@"\stage\docs"), @"\stage descendants should be writable");
         Assert(!JournalPathMapper.IsWritableProjectedPath(@"\ledger"), @"\ledger should be read-only");
         Assert(!JournalPathMapper.IsWritableProjectedPath(@"\ledger\state\docs"), @"\ledger/state should be read-only");
-        Assert(!JournalPathMapper.IsWritableProjectedPath(@"\ledger\previous\3\state"), @"\ledger/previous should be read-only");
+        Assert(!JournalPathMapper.IsWritableProjectedPath(@"\ledger\3\state"), @"\ledger/<index> should be read-only");
     }
 
     private void ValidateInvalidPaths()
     {
         AssertCompileFails("""{"bad":"root"}""", "Fixture path must be an array.");
         AssertCompileFails("""[1]""", "Fixture path block must be an array of strings.");
-        AssertCompileFails("""[["*peer*","alice","chain"]]""", "Fixture stage path must begin with [\"*state*\", ...].");
-        AssertCompileFails("""[1,["*peer*","alice","chain"]]""", "Ledger fixture path must terminate in a state block.");
+        AssertCompileFails("""[["*bridge*","alice","chain"]]""", "Fixture stage path must begin with [\"*state*\", ...].");
+        AssertCompileFails("""[1,["*bridge*","alice","chain"]]""", "Ledger fixture path must terminate in a state block.");
         AssertCompileFails("""[1,["*state*","docs"],2]""", "State block must terminate the fixture path.");
 
         Assert(
-            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\previous\abc\state\file.txt", out _),
-            "non-integer previous segment should fail decompilation");
+            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\abc\state\file.txt", out _),
+            "non-integer index segment should fail decompilation");
         Assert(
-            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\peer", out _),
-            "missing peer name should fail decompilation");
+            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\bridge", out _),
+            "missing bridge name should fail decompilation");
         Assert(
-            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\previous\2", out _),
+            !JournalPathMapper.TryDecompileProjectedPath(@"\ledger\2", out _),
             "missing terminal state should fail decompilation");
     }
 
@@ -128,13 +131,12 @@ public sealed class GrammarValidationWorker : BackgroundService
 
         Assert(snapshot.Directories.Any(directory => directory.Path == "stage"), "fixture should expose stage root");
         Assert(snapshot.Directories.Any(directory => directory.Path == "ledger"), "fixture should expose ledger root");
-        Assert(snapshot.Directories.Any(directory => directory.Path == "ledger/state"), "fixture should mirror stage into ledger/state");
+        Assert(!snapshot.Directories.Any(directory => directory.Path == "ledger/state"), "fixture should not expose ledger/state shortcut");
         Assert(snapshot.Files.Any(file => file.Path == "stage/hello.txt"), "fixture should expose stage/hello.txt");
         Assert(snapshot.Files.Any(file => file.Path == "stage/guide-link"), "fixture should expose stage symlink entry");
-        Assert(snapshot.Files.Any(file => file.Path == "ledger/state/hello.txt"), "fixture should expose mirrored ledger/state/hello.txt");
-        Assert(snapshot.Files.Any(file => file.Path == "ledger/previous/3/state/archive.txt"), "fixture should expose previous snapshot file");
-        Assert(snapshot.Files.Any(file => file.Path == "ledger/peer/alice/state/current-remote.txt"), "fixture should expose peer state file");
-        Assert(snapshot.Files.Any(file => file.Path == "ledger/peer/alice/previous/2/state/remote-note.txt"), "fixture should expose recursive peer previous file");
+        Assert(snapshot.Files.Any(file => file.Path == "ledger/3/state/archive.txt"), "fixture should expose snapshot file");
+        Assert(snapshot.Files.Any(file => file.Path == "ledger/-1/bridge/alice/state/current-remote.txt"), "fixture should expose bridge state file");
+        Assert(snapshot.Files.Any(file => file.Path == "ledger/-1/bridge/alice/2/state/remote-note.txt"), "fixture should expose bridge indexed state file");
         Assert(fileSystem.TryGetSymlink(@"\stage\guide-link", out var fixtureSymlink), "fixture should materialize stage symlink");
         Assert(string.Equals(fixtureSymlink.ProjectedTargetPath, @"\stage\docs\guide.txt", StringComparison.Ordinal), "fixture symlink should resolve to the projected stage target");
 
@@ -154,34 +156,34 @@ public sealed class GrammarValidationWorker : BackgroundService
         var fileSystem = JsonFileSystemLoader.LoadFromFile(_options.JsonFixturePath, "syncfs-readonly");
 
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.CreateFile(@"\ledger\state\blocked.txt"),
+            () => fileSystem.CreateFile(@"\ledger\-1\state\blocked.txt"),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.CreateDirectory(@"\ledger\peer\alice\state\blocked"),
+            () => fileSystem.CreateDirectory(@"\ledger\-1\bridge\alice\state\blocked"),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.Delete(@"\ledger\previous\3\state\archive.txt"),
+            () => fileSystem.Delete(@"\ledger\3\state\archive.txt"),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.Move(@"\ledger\previous\3\state\archive.txt", @"\ledger\previous\3\state\archive-2.txt"),
+            () => fileSystem.Move(@"\ledger\3\state\archive.txt", @"\ledger\3\state\archive-2.txt"),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.OpenFile(@"\ledger\state\hello.txt", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None),
+            () => fileSystem.OpenFile(@"\ledger\3\state\archive.txt", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.SetAttributes(@"\ledger\state\hello.txt", isHidden: true, isReadonly: null, isArchived: null),
+            () => fileSystem.SetAttributes(@"\ledger\3\state\archive.txt", isHidden: true, isReadonly: null, isArchived: null),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
-            () => fileSystem.SetDates(@"\ledger\state\hello.txt", DateTime.UtcNow, null, null),
+            () => fileSystem.SetDates(@"\ledger\3\state\archive.txt", DateTime.UtcNow, null, null),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
             () => fileSystem.SetMetadata(
-                @"\ledger\state\hello.txt",
+                @"\ledger\3\state\archive.txt",
                 new InMemoryFileSystem.SnapshotMetadata(null, null, null, null, null, null)),
             "Read-only projected path");
         AssertThrows<UnauthorizedAccessException>(
             () => fileSystem.SetControl(
-                @"\ledger\state\hello.txt",
+                @"\ledger\3\state\archive.txt",
                 new InMemoryFileSystem.SnapshotControl(false, "bytes", null, null, null)),
             "Read-only projected path");
     }
@@ -378,17 +380,16 @@ public sealed class GrammarValidationWorker : BackgroundService
             Assert(helloText.Contains("Synchronic file-system JSON fixture.", StringComparison.Ordinal), "gateway projection should read stage file content");
 
             var ledgerEntries = fileSystem.ListEntriesInDirectory(@"\ledger");
-            Assert(ledgerEntries.Any(entry => entry.Name == "state"), "gateway projection ledger should list state");
-            Assert(ledgerEntries.Any(entry => entry.Name == "peer"), "gateway projection ledger should list peer");
-            Assert(ledgerEntries.Any(entry => entry.Name == "previous"), "gateway projection ledger should list previous");
+            Assert(!ledgerEntries.Any(entry => entry.Name == "state"), "gateway projection ledger should not list state shortcut");
+            Assert(!ledgerEntries.Any(entry => entry.Name == "bridge"), "gateway projection ledger should be empty at root level");
 
-            var peerEntries = fileSystem.ListEntriesInDirectory(@"\ledger\peer");
-            Assert(peerEntries.Any(entry => entry.Name == "alice"), "gateway projection ledger/peer should list peer names");
+            var bridgeEntries = fileSystem.ListEntriesInDirectory(@"\ledger\-1\bridge");
+            Assert(bridgeEntries.Any(entry => entry.Name == "alice"), "gateway projection ledger/-1/bridge should list bridge names");
 
-            using var remoteStream = fileSystem.OpenFile(@"\ledger\peer\alice\state\current-remote.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
+            using var remoteStream = fileSystem.OpenFile(@"\ledger\-1\bridge\alice\state\current-remote.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
             using var remoteReader = new StreamReader(remoteStream, System.Text.Encoding.UTF8, leaveOpen: false);
             var remoteText = remoteReader.ReadToEnd();
-            Assert(remoteText.Contains("mock current related-peer entry", StringComparison.Ordinal), "gateway projection should read peer state content");
+            Assert(remoteText.Contains("mock current related-peer entry", StringComparison.Ordinal), "gateway projection should read bridge state content");
             Assert(fileSystem.TryGetSymlink(@"\stage\guide-link", out var gatewaySymlink), "gateway projection should materialize stage symlink");
             Assert(string.Equals(gatewaySymlink.ProjectedTargetPath, @"\stage\docs\guide.txt", StringComparison.Ordinal), "gateway projection symlink should resolve to projected target");
 
@@ -418,21 +419,21 @@ public sealed class GrammarValidationWorker : BackgroundService
         var beforeText = beforeReader.ReadToEnd();
         Assert(string.IsNullOrEmpty(beforeText), @"\root\pin should start empty before ledger reads");
 
-        using var discoveredRead = fileSystem.OpenFile(@"\ledger\state\written.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
+        using var discoveredRead = fileSystem.OpenFile(@"\ledger\-1\state\written.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var discoveredReader = new StreamReader(discoveredRead, Encoding.UTF8, leaveOpen: false);
         _ = discoveredReader.ReadToEnd();
 
         using var afterDiscover = fileSystem.OpenFile(@"\root\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var afterReader = new StreamReader(afterDiscover, Encoding.UTF8, leaveOpen: false);
         var afterText = afterReader.ReadToEnd();
-        Assert(afterText.Contains("pinned /ledger/state/written.txt", StringComparison.Ordinal), @"\root\pin should render discovered ledger pin state");
+        Assert(afterText.Contains("pinned /ledger/-1/state/written.txt", StringComparison.Ordinal), @"\root\pin should render discovered ledger pin state");
 
         using (var writeStream = fileSystem.OpenFile(@"\root\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None))
         using (var writer = new StreamWriter(writeStream, new UTF8Encoding(false), 1024, leaveOpen: false))
         {
-            writer.WriteLine("pinned /ledger/state/hello.txt");
-            writer.WriteLine("unpinned /ledger/state/written.txt");
-            writer.WriteLine("pinned /ledger/state/docs");
+            writer.WriteLine("pinned /ledger/-1/state/hello.txt");
+            writer.WriteLine("unpinned /ledger/-1/state/written.txt");
+            writer.WriteLine("pinned /ledger/-1/state/docs");
         }
 
         Assert(string.Equals(gateway.LastPinPathJson, """[-1,["*state*","docs"]]""", StringComparison.Ordinal), "pin root file should pin the listed ledger directory path");
@@ -441,9 +442,9 @@ public sealed class GrammarValidationWorker : BackgroundService
         using var afterWrite = fileSystem.OpenFile(@"\root\pin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None);
         using var afterWriteReader = new StreamReader(afterWrite, Encoding.UTF8, leaveOpen: false);
         var afterWriteText = afterWriteReader.ReadToEnd();
-        Assert(afterWriteText.Contains("pinned /ledger/state/hello.txt", StringComparison.Ordinal), "pin root file should retain pinned file directive");
-        Assert(afterWriteText.Contains("unpinned /ledger/state/written.txt", StringComparison.Ordinal), "pin root file should retain unpinned file directive");
-        Assert(afterWriteText.Contains("pinned /ledger/state/docs", StringComparison.Ordinal), "pin root file should retain pinned directory directive");
+        Assert(afterWriteText.Contains("pinned /ledger/-1/state/hello.txt", StringComparison.Ordinal), "pin root file should retain pinned file directive");
+        Assert(afterWriteText.Contains("unpinned /ledger/-1/state/written.txt", StringComparison.Ordinal), "pin root file should retain unpinned file directive");
+        Assert(afterWriteText.Contains("pinned /ledger/-1/state/docs", StringComparison.Ordinal), "pin root file should retain pinned directory directive");
 
         AssertThrows<InvalidDataException>(
             () =>
@@ -468,15 +469,15 @@ public sealed class GrammarValidationWorker : BackgroundService
     {
         var fileSystem = new GatewayProjectionFileSystem("projection-contextual-peers", new ContextualPeerGatewayClient());
 
-        var rootPeerEntries = fileSystem.ListEntriesInDirectory(@"\ledger\peer");
-        Assert(rootPeerEntries.Any(entry => entry.Name == "journal-4"), "root ledger/peer should include journal-4");
-        Assert(rootPeerEntries.Any(entry => entry.Name == "journal-7"), "root ledger/peer should include journal-7");
+        var rootBridgeEntries = fileSystem.ListEntriesInDirectory(@"\ledger\-1\bridge");
+        Assert(rootBridgeEntries.Any(entry => entry.Name == "journal-4"), "root ledger/-1/bridge should include journal-4");
+        Assert(rootBridgeEntries.Any(entry => entry.Name == "journal-7"), "root ledger/-1/bridge should include journal-7");
 
-        var nestedPeerEntries = fileSystem.ListEntriesInDirectory(@"\ledger\peer\journal-7\peer");
-        Assert(nestedPeerEntries.Any(entry => entry.Name == "journal-2"), "nested ledger/peer should include journal-2");
-        Assert(nestedPeerEntries.Any(entry => entry.Name == "journal-3"), "nested ledger/peer should include journal-3");
-        Assert(!nestedPeerEntries.Any(entry => entry.Name == "journal-4"), "nested ledger/peer should not reuse root journal-4 peer");
-        Assert(!nestedPeerEntries.Any(entry => entry.Name == "journal-7"), "nested ledger/peer should not reuse root journal-7 peer");
+        var nestedBridgeEntries = fileSystem.ListEntriesInDirectory(@"\ledger\-1\bridge\journal-7\bridge");
+        Assert(nestedBridgeEntries.Any(entry => entry.Name == "journal-2"), "nested ledger/-1/bridge/journal-7/bridge should include journal-2");
+        Assert(nestedBridgeEntries.Any(entry => entry.Name == "journal-3"), "nested ledger/-1/bridge/journal-7/bridge should include journal-3");
+        Assert(!nestedBridgeEntries.Any(entry => entry.Name == "journal-4"), "nested ledger/-1/bridge/journal-7/bridge should not reuse root journal-4 bridge");
+        Assert(!nestedBridgeEntries.Any(entry => entry.Name == "journal-7"), "nested ledger/-1/bridge/journal-7/bridge should not reuse root journal-7 bridge");
     }
 
     private void ValidateSymlinkAwareFileStore()
@@ -1150,7 +1151,16 @@ public sealed class GrammarValidationWorker : BackgroundService
             var pathJson = JsonSerializer.Serialize(request.Path);
             return pathJson switch
             {
-                """[-1,["*peer*","journal-7","chain"],-1,["*peer*"]]""" => Task.FromResult<JsonNode?>(new JsonObject
+                """[-1,["*bridge*"]]""" => Task.FromResult<JsonNode?>(new JsonObject
+                {
+                    ["content"] = new JsonArray("directory", new JsonObject
+                    {
+                        ["journal-4"] = "directory",
+                        ["journal-7"] = "directory",
+                    }, false),
+                    ["pinned?"] = false,
+                }),
+                """[-1,["*bridge*","journal-7","chain"],-1,["*bridge*"]]""" => Task.FromResult<JsonNode?>(new JsonObject
                 {
                     ["content"] = new JsonArray("directory", new JsonObject
                     {
@@ -1197,6 +1207,6 @@ public sealed class GrammarValidationWorker : BackgroundService
             => Task.FromResult(1L);
 
         public Task<IReadOnlyList<string>> BridgesAsync(CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<string>>(new[] { "journal-4", "journal-7" });
+            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 }

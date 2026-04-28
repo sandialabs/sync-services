@@ -20,7 +20,7 @@ public sealed class GatewayProjectionFileSystemTests
             Assert.Equal(string.Empty, reader.ReadToEnd());
         }
 
-        using (var discoveredRead = fileSystem.OpenFile(@"\ledger\state\written.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None))
+        using (var discoveredRead = fileSystem.OpenFile(@"\ledger\-1\state\written.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.None))
         using (var reader = new StreamReader(discoveredRead, Encoding.UTF8, leaveOpen: false))
         {
             _ = reader.ReadToEnd();
@@ -30,7 +30,7 @@ public sealed class GatewayProjectionFileSystemTests
         using var afterReader = new StreamReader(afterDiscover, Encoding.UTF8, leaveOpen: false);
         var afterText = afterReader.ReadToEnd();
 
-        Assert.Contains("pinned /ledger/state/written.txt", afterText, StringComparison.Ordinal);
+        Assert.Contains("pinned /ledger/-1/state/written.txt", afterText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -42,9 +42,9 @@ public sealed class GatewayProjectionFileSystemTests
         using (var writeStream = fileSystem.OpenFile(@"\root\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None))
         using (var writer = new StreamWriter(writeStream, new UTF8Encoding(false), 1024, leaveOpen: false))
         {
-            writer.WriteLine("pinned /ledger/state/hello.txt");
-            writer.WriteLine("unpinned /ledger/state/written.txt");
-            writer.WriteLine("pinned /ledger/state/docs");
+            writer.WriteLine("pinned /ledger/-1/state/hello.txt");
+            writer.WriteLine("unpinned /ledger/-1/state/written.txt");
+            writer.WriteLine("pinned /ledger/-1/state/docs");
         }
 
         Assert.Equal("""[-1,["*state*","docs"]]""", gateway.LastPinPathJson);
@@ -54,9 +54,9 @@ public sealed class GatewayProjectionFileSystemTests
         using var reader = new StreamReader(readBack, Encoding.UTF8, leaveOpen: false);
         var rendered = reader.ReadToEnd();
 
-        Assert.Contains("pinned /ledger/state/hello.txt", rendered, StringComparison.Ordinal);
-        Assert.Contains("unpinned /ledger/state/written.txt", rendered, StringComparison.Ordinal);
-        Assert.Contains("pinned /ledger/state/docs", rendered, StringComparison.Ordinal);
+        Assert.Contains("pinned /ledger/-1/state/hello.txt", rendered, StringComparison.Ordinal);
+        Assert.Contains("unpinned /ledger/-1/state/written.txt", rendered, StringComparison.Ordinal);
+        Assert.Contains("pinned /ledger/-1/state/docs", rendered, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public sealed class GatewayProjectionFileSystemTests
         {
             using var invalidStream = fileSystem.OpenFile(@"\root\pin", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, FileOptions.None);
             using var writer = new StreamWriter(invalidStream, new UTF8Encoding(false), 1024, leaveOpen: false);
-            writer.WriteLine("pinndded /ledger/state/hello.txt");
+            writer.WriteLine("pinndded /ledger/-1/state/hello.txt");
         });
 
         Assert.Contains("Invalid pin root directive", exception.Message, StringComparison.Ordinal);

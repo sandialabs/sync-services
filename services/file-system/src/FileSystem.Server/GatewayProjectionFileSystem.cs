@@ -27,7 +27,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         _cache = new InMemoryFileSystem($"{name}-cache", isWritablePath: _ => false);
         SeedSyntheticDirectory(@"\stage");
         SeedSyntheticDirectory(@"\ledger");
-        SeedChainNode(@"\ledger");
         SeedSyntheticDirectory(@"\root");
         _cache.SeedFile(@"\root\pin", Array.Empty<byte>());
     }
@@ -608,7 +607,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             case ProjectedPathKind.RootSyntheticRoot:
             case ProjectedPathKind.LedgerSyntheticRoot:
             case ProjectedPathKind.LedgerNodeContainer:
-            case ProjectedPathKind.LedgerPreviousContainer:
             case ProjectedPathKind.LedgerNodeRoot:
                 EnsureDirectoryMaterialized(normalized);
                 return;
@@ -657,6 +655,7 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 MaterializeContentPath(info, normalized);
                 return;
             case ProjectedPathKind.LedgerSyntheticRoot:
+                return;
             case ProjectedPathKind.LedgerNodeRoot:
                 SeedChainNode(normalized);
                 return;
@@ -668,9 +667,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                     SeedSyntheticDirectory(bridgeRoot);
                     SeedChainNode(bridgeRoot);
                 }
-                return;
-            case ProjectedPathKind.LedgerPreviousContainer:
-                SeedSyntheticDirectory(normalized);
                 return;
             default:
                 throw new DirectoryNotFoundException(normalized);
@@ -1029,7 +1025,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         SeedSyntheticDirectory(path);
         SeedSyntheticDirectory(CombinePath(path, "state"));
         SeedSyntheticDirectory(CombinePath(path, "bridge"));
-        SeedSyntheticDirectory(CombinePath(path, "previous"));
     }
 
     private FileSystemEntry BuildPinRootFileEntry()
@@ -1116,11 +1111,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
     private IReadOnlyList<string> GetBridgesForNodeContainer(string normalizedPath)
     {
-        if (string.Equals(normalizedPath, @"\ledger\bridge", StringComparison.OrdinalIgnoreCase))
-        {
-            return _gateway.BridgesAsync(CancellationToken.None).GetAwaiter().GetResult();
-        }
-
         var bridgeListingPath = BuildBridgeListingJournalPath(normalizedPath);
         var gatewayValue = _gateway.GetAsync(new GatewayGetRequest(bridgeListingPath, true, false), CancellationToken.None)
             .GetAwaiter()
@@ -1161,15 +1151,10 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 continue;
             }
 
-            if (string.Equals(segment, "previous", StringComparison.OrdinalIgnoreCase))
+            if (int.TryParse(segment, out var indexSegment))
             {
-                if (cursor == segments.Length - 1 || !int.TryParse(segments[cursor + 1], out var index))
-                {
-                    throw new InvalidDataException($"Ledger bridge container path has invalid previous segment: {normalizedPath}");
-                }
-
-                ledgerParts.Add(index);
-                cursor += 2;
+                ledgerParts.Add(indexSegment);
+                cursor++;
                 continue;
             }
 
@@ -1191,6 +1176,14 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
         if (content is JsonArray array)
         {
+            if (array.Count == 1 &&
+                array[0] is JsonValue nothingCheck &&
+                nothingCheck.TryGetValue<string>(out var nothingSentinel) &&
+                string.Equals(nothingSentinel, "nothing", StringComparison.OrdinalIgnoreCase))
+            {
+                return Array.Empty<string>();
+            }
+
             if (array.Count >= 2 &&
                 array[0] is JsonValue headerValue &&
                 headerValue.TryGetValue<string>(out var header) &&
@@ -1422,7 +1415,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
         if (info.MirroredKind is ProjectedPathKind.LedgerSyntheticRoot or
             ProjectedPathKind.LedgerNodeContainer or
-            ProjectedPathKind.LedgerPreviousContainer or
             ProjectedPathKind.LedgerNodeRoot)
         {
             return true;
@@ -1489,7 +1481,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
     {
         if (info.MirroredKind is ProjectedPathKind.LedgerSyntheticRoot or
             ProjectedPathKind.LedgerNodeContainer or
-            ProjectedPathKind.LedgerPreviousContainer or
             ProjectedPathKind.LedgerNodeRoot)
         {
             return true;
@@ -1784,7 +1775,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             if (info.Kind is ProjectedPathKind.StageSyntheticRoot or
                 ProjectedPathKind.LedgerSyntheticRoot or
                 ProjectedPathKind.LedgerNodeContainer or
-                ProjectedPathKind.LedgerPreviousContainer or
                 ProjectedPathKind.LedgerNodeRoot)
             {
                 EnsureDirectoryMaterialized(current);
@@ -1976,7 +1966,11 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
             var segment = segments[cursor];
             if (string.Equals(segment, "state", StringComparison.OrdinalIgnoreCase))
             {
-                EnsureCurrentLedgerContext(ledgerParts);
+                if (ledgerParts.Count == 0)
+                {
+                    return new ProjectedPathInfo(ProjectedPathKind.Invalid, null);
+                }
+
                 EnsureCurrentBridgeContext(ledgerParts);
 
                 var stateBlock = new object[] { "*state*" }.Concat(segments.Skip(cursor + 1).Cast<object>()).ToArray();
@@ -1986,12 +1980,16 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
 
             if (string.Equals(segment, "bridge", StringComparison.OrdinalIgnoreCase))
             {
+                if (ledgerParts.Count == 0)
+                {
+                    return new ProjectedPathInfo(ProjectedPathKind.Invalid, null);
+                }
+
                 if (cursor == segments.Length - 1)
                 {
                     return new ProjectedPathInfo(ProjectedPathKind.LedgerNodeContainer, null);
                 }
 
-                EnsureCurrentLedgerContext(ledgerParts);
                 EnsureCurrentBridgeContext(ledgerParts);
                 ledgerParts.Add(new object[] { "*bridge*", segments[cursor + 1], "chain" });
                 cursor += 2;
@@ -2002,20 +2000,10 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
                 continue;
             }
 
-            if (string.Equals(segment, "previous", StringComparison.OrdinalIgnoreCase))
+            if (int.TryParse(segment, out var indexSegment))
             {
-                if (cursor == segments.Length - 1)
-                {
-                    return new ProjectedPathInfo(ProjectedPathKind.LedgerPreviousContainer, null);
-                }
-
-                if (!int.TryParse(segments[cursor + 1], out var index))
-                {
-                    return new ProjectedPathInfo(ProjectedPathKind.Invalid, null);
-                }
-
-                ledgerParts.Add(index);
-                cursor += 2;
+                ledgerParts.Add(indexSegment);
+                cursor++;
                 if (cursor == segments.Length)
                 {
                     return new ProjectedPathInfo(ProjectedPathKind.LedgerNodeRoot, null);
@@ -2234,7 +2222,6 @@ public sealed class GatewayProjectionFileSystem : IFileSystem, ISymlinkAwareFile
         RootPinMirror,
         LedgerSyntheticRoot,
         LedgerNodeContainer,
-        LedgerPreviousContainer,
         LedgerNodeRoot,
         LedgerStateContent,
     }

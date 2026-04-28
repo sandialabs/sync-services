@@ -44,7 +44,7 @@ describe('projectedFragments', () => {
       rootIndex: 42,
     });
 
-    expect(hash).toBe('#ledger/previous/42/bridge/alice/bridge/bob/previous/-3/state/docs/readme.md');
+    expect(hash).toBe('#ledger/42/bridge/alice/bridge/bob/-3/state/docs/readme.md');
 
     expect(parseFragmentHash(hash)).toEqual({
       mode: 'ledger',
